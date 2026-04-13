@@ -1,0 +1,22 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+
+    OPENAI_API_KEY: str = ''
+    SEMANTIC_SCHOLAR_API_KEY: str = ''
+    BIGKINDS_API_KEY: str = ''
+    KIPRIS_API_KEY: str = ''
+    TAVILY_API_KEY: str = ''
+    LAW_GO_KR_API_KEY: str = ''
+    DART_API_KEY: str = ''
+    DART_DOCS_DIR: str = './data/dart'
+
+    CHROMA_HOST: str = 'chroma'
+    CHROMA_PORT: int = 8000
+
+    CORS_ORIGINS: str = 'http://localhost:5173'
+
+
+settings = Settings()
