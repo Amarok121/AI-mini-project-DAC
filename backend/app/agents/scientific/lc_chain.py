@@ -76,6 +76,20 @@ def _venue_from_ss(p: dict[str, Any]) -> str:
     return ""
 
 
+def _ss_open_access_pdf_url(p: dict[str, Any]) -> str:
+    oa = p.get("openAccessPdf")
+    if isinstance(oa, dict):
+        return str(oa.get("url") or "").strip()
+    return ""
+
+
+def _arxiv_pdf_url(arid: str) -> str:
+    a = (arid or "").strip()
+    if not a:
+        return ""
+    return f"https://arxiv.org/pdf/{a}.pdf"
+
+
 def _oa_primary_venue(w: dict[str, Any]) -> str:
     pl = w.get("primary_location") or {}
     if not isinstance(pl, dict):
@@ -119,6 +133,7 @@ def _merge_ss_openalex(ss: list[dict[str, Any]], oa: list[dict[str, Any]]) -> li
                 "citations": citations,
                 "doi": doi,
                 "url": str(p.get("url") or ""),
+                "pdf_url": _ss_open_access_pdf_url(p),
                 "semantic_scholar_id": str(p.get("paperId") or ""),
                 "openalex_id": str(oa_w.get("id") or "") if oa_w else "",
                 "arxiv_id": "",
@@ -139,6 +154,7 @@ def _merge_ss_openalex(ss: list[dict[str, Any]], oa: list[dict[str, Any]]) -> li
                 "citations": int(w.get("cited_by_count") or 0),
                 "doi": str(w.get("doi") or "").replace("https://doi.org/", ""),
                 "url": str(w.get("id") or ""),
+                "pdf_url": "",
                 "semantic_scholar_id": "",
                 "openalex_id": str(w.get("id") or ""),
                 "arxiv_id": "",
@@ -167,8 +183,11 @@ def _merge_with_arxiv(
             ap_abs = str(ap.get("abstract") or "").strip()
             if len(ap_abs) > len(str(m.get("abstract") or "")):
                 m["abstract"] = ap_abs
-            if ap.get("arxiv_id") and not str(m.get("arxiv_id") or "").strip():
-                m["arxiv_id"] = str(ap["arxiv_id"])
+            aid = str(ap.get("arxiv_id") or "").strip()
+            if aid and not str(m.get("arxiv_id") or "").strip():
+                m["arxiv_id"] = aid
+            if aid and not str(m.get("pdf_url") or "").strip():
+                m["pdf_url"] = _arxiv_pdf_url(aid)
             if ap.get("doi") and not str(m.get("doi") or "").strip():
                 m["doi"] = str(ap["doi"])
             jr = str(ap.get("journal_ref") or "").strip()
@@ -180,6 +199,7 @@ def _merge_with_arxiv(
                 m["url"] = str(ap["abs_url"])
             continue
         venue = str(ap.get("journal_ref") or "").strip() or "arXiv (preprint)"
+        aid_only = str(ap.get("arxiv_id") or "")
         new_m: dict[str, Any] = {
             "title": str(ap.get("title") or ""),
             "abstract": str(ap.get("abstract") or ""),
@@ -188,9 +208,10 @@ def _merge_with_arxiv(
             "citations": 0,
             "doi": str(ap.get("doi") or ""),
             "url": str(ap.get("abs_url") or ""),
+            "pdf_url": _arxiv_pdf_url(aid_only),
             "semantic_scholar_id": "",
             "openalex_id": "",
-            "arxiv_id": str(ap.get("arxiv_id") or ""),
+            "arxiv_id": aid_only,
             "authors": list(ap.get("authors") or []),
         }
         by_key[key] = new_m
@@ -287,6 +308,7 @@ def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentOutput:
                 oa_id=str(u.get("openalex_id") or ""),
                 doi=str(u.get("doi") or ""),
                 arxiv_id=str(u.get("arxiv_id") or ""),
+                pdf_url=str(u.get("pdf_url") or ""),
             )
         )
 

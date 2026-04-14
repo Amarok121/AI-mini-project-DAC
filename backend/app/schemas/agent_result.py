@@ -3,12 +3,35 @@ from pydantic import BaseModel, Field
 from .claim import Claim
 
 
+class SelectedPaperDocument(BaseModel):
+    """교차검증·외부 파서로 넘길 선정 논문 참조(바이너리는 전달하지 않고 URL만)."""
+
+    title: str
+    primary_url: str = ''
+    pdf_url: str = ''
+    doi: str = ''
+    semantic_scholar_id: str = ''
+    openalex_id: str = ''
+    arxiv_id: str = ''
+    source_system: str = Field(default='', description='semantic_scholar | arxiv | openalex | merged')
+
+
+class SelectedRegulatoryDocument(BaseModel):
+    """교차검증·외부 파서로 넘길 규제·법령 문서 참조."""
+
+    law_name: str = ''
+    primary_url: str = ''
+    pdf_url: str = ''
+    source: str = Field(default='', description='law.go.kr | eur-lex | federalregister.gov 등')
+
+
 class PaperResult(BaseModel):
     title: str
     authors: list[str] = []
     year: int = 0
     journal: str = ''
     url: str = ''
+    pdf_url: str = ''
     grade_score: float = 0.0
     grade_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     citation_count: int = 0
@@ -80,6 +103,7 @@ class RegulatoryAgentOutput(BaseModel):
     reason: Optional[str] = None
     extracted_law_candidates: list[str] = []
     pipeline_notes: list[str] = []
+    documents_for_validation: list[SelectedRegulatoryDocument] = Field(default_factory=list)
 
 
 class ClaimVerificationResult(BaseModel):
@@ -96,3 +120,5 @@ class CrossValidatorOutput(BaseModel):
     results: list[ClaimVerificationResult] = []
     overall_verdict: str = '판단 보류'
     conflicts: list[str] = []
+    papers_for_validation: list[SelectedPaperDocument] = Field(default_factory=list)
+    regulations_for_validation: list[SelectedRegulatoryDocument] = Field(default_factory=list)
