@@ -314,17 +314,33 @@ def _build_section_system_prompt(base_context: str, sources: list[SourceItem]) -
     )
 
 
+def _prompt_builder_fallback(
+    section_id: str,
+    sources: list[SourceItem],
+    exc: Exception,
+) -> tuple[str, str, list[int]]:
+    logger.exception('Failed to build prompts for section %s', section_id)
+    system_prompt = _build_section_system_prompt(f'{_SECTION_TITLES[section_id]} 섹션 작성', sources)
+    user_prompt = (
+        f"섹션 제목은 '### {_SECTION_TITLES[section_id]}'로 시작하세요.\n"
+        "해당 섹션 데이터를 불러오는 중 오류가 발생했습니다.\n"
+        f"오류 요약: {exc}"
+    )
+    return system_prompt, user_prompt, _section_sources_ref_ids(sources)
+
+
 def _build_section1_prompts(
     report_input: ReportInput,
     company_context: str,
     all_sources: list[SourceItem],
 ) -> tuple[str, str, list[int]]:
-    claims_table = _build_claims_table(report_input.claims)
-    system_prompt = _build_section_system_prompt(
-        f"회사 일반 현황 컨텍스트:\n{company_context or '제공된 회사 컨텍스트 없음'}",
-        all_sources,
-    )
-    user_prompt = f"""섹션 제목은 '### 검증 개요'로 시작하세요.
+    try:
+        claims_table = _build_claims_table(report_input.claims)
+        system_prompt = _build_section_system_prompt(
+            f"회사 일반 현황 컨텍스트:\n{company_context or '제공된 회사 컨텍스트 없음'}",
+            all_sources,
+        )
+        user_prompt = f"""섹션 제목은 '### 검증 개요'로 시작하세요.
 회사명: {report_input.company_name}
 검증 대상 기술: {_tech_label(report_input.claims)}
 
@@ -339,16 +355,19 @@ def _build_section1_prompts(
 - 검증 대상 주장 목록을 표를 활용해 설명한다.
 - 회사 일반 현황 컨텍스트가 없으면 그 한계를 드러내되 보고서 톤은 유지한다.
 """
-    return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+        return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+    except Exception as exc:
+        return _prompt_builder_fallback('section1', all_sources, exc)
 
 
 def _build_section2_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
 ) -> tuple[str, str, list[int]]:
-    scientific = report_input.scientific
-    system_prompt = _build_section_system_prompt('과학적 근거 분석 섹션 작성', section_sources)
-    user_prompt = f"""섹션 제목은 '### 과학적 근거 분석'으로 시작하세요.
+    try:
+        scientific = report_input.scientific
+        system_prompt = _build_section_system_prompt('과학적 근거 분석 섹션 작성', section_sources)
+        user_prompt = f"""섹션 제목은 '### 과학적 근거 분석'으로 시작하세요.
 Scientific 요약: {scientific.summary or '-'}
 TRL 추정값: {scientific.trl_estimate or '-'}
 TRL 판단 근거: {scientific.trl_rationale or '-'}
@@ -365,23 +384,26 @@ TRL 판단 근거: {scientific.trl_rationale or '-'}
 - TRL 현재 추정 수준과 그 판단 근거를 분리해 설명한다.
 - cross validation의 과학 신뢰도 판정을 함께 서술한다.
 """
-    return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+        return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+    except Exception as exc:
+        return _prompt_builder_fallback('section2', section_sources, exc)
 
 
 def _build_section3_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
 ) -> tuple[str, str, list[int]]:
-    industrial = report_input.industrial
-    system_prompt = _build_section_system_prompt('산업화 현황 분석 섹션 작성', section_sources)
-    user_prompt = f"""섹션 제목은 '### 산업화 현황 분석'으로 시작하세요.
+    try:
+        industrial = report_input.industrial
+        system_prompt = _build_section_system_prompt('산업화 현황 분석 섹션 작성', section_sources)
+        user_prompt = f"""섹션 제목은 '### 산업화 현황 분석'으로 시작하세요.
 Industrial 요약: {industrial.summary or '-'}
 MRL 추정값: {industrial.mrl_estimate or '-'}
 MRL 판단 근거: {industrial.mrl_rationale or '-'}
 산업 신뢰도 판정: {report_input.cross_validation.industrial_confidence or '-'}
 
 뉴스 목록:
-{chr(10).join([f"- {news.title} / {news.provider} / {news.published_at} / level={news.craap_level}" for news in industrial.news]) or '- 뉴스 정보 없음'}
+{chr(10).join([f"- {news.title} / {news.publisher} / {news.published_at} / level={news.craap_level}" for news in industrial.news]) or '- 뉴스 정보 없음'}
 
 특허 목록:
 {chr(10).join([f"- {patent.title} / {patent.applicant} / {patent.application_date} / 상태={patent.status}" for patent in industrial.patents]) or '- 특허 정보 없음'}
@@ -394,16 +416,19 @@ MRL 판단 근거: {industrial.mrl_rationale or '-'}
 - MRL 현재 추정 수준과 그 판단 근거를 설명한다.
 - cross validation의 산업 신뢰도 판정을 반영한다.
 """
-    return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+        return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+    except Exception as exc:
+        return _prompt_builder_fallback('section3', section_sources, exc)
 
 
 def _build_section4_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
 ) -> tuple[str, str, list[int]]:
-    regulatory = report_input.regulatory
-    system_prompt = _build_section_system_prompt('규제 및 법률 검토 섹션 작성', section_sources)
-    user_prompt = f"""섹션 제목은 '### 규제 및 법률 검토'로 시작하세요.
+    try:
+        regulatory = report_input.regulatory
+        system_prompt = _build_section_system_prompt('규제 및 법률 검토 섹션 작성', section_sources)
+        user_prompt = f"""섹션 제목은 '### 규제 및 법률 검토'로 시작하세요.
 Regulatory 요약: {regulatory.summary or '-'}
 규제 판정: {regulatory.verdict or '-'}
 CRI 추정값: {regulatory.cri_estimate or '-'}
@@ -421,7 +446,9 @@ CRI 판단 근거: {regulatory.cri_rationale or '-'}
 - CRI 현재 추정 수준과 그 판단 근거를 설명한다.
 - cross validation의 규제 신뢰도 판정을 반영한다.
 """
-    return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+        return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+    except Exception as exc:
+        return _prompt_builder_fallback('section4', section_sources, exc)
 
 
 def _build_section5_prompts(
@@ -431,10 +458,11 @@ def _build_section5_prompts(
     section4: SectionDraft,
     all_sources: list[SourceItem],
 ) -> tuple[str, str, list[int]]:
-    system_prompt = _build_section_system_prompt('최종 평가표 및 해설 섹션 작성', all_sources)
-    metric_table = _build_metric_table(report_input)
-    judgement_table = _build_claim_judgement_table(report_input.cross_validation.results, report_input.claims)
-    user_prompt = f"""섹션 제목은 '### 최종 평가표 및 해설'로 시작하세요.
+    try:
+        system_prompt = _build_section_system_prompt('최종 평가표 및 해설 섹션 작성', all_sources)
+        metric_table = _build_metric_table(report_input)
+        judgement_table = _build_claim_judgement_table(report_input.cross_validation.results, report_input.claims)
+        user_prompt = f"""섹션 제목은 '### 최종 평가표 및 해설'로 시작하세요.
 이전 섹션 초안 참고:
 
 [section2]
@@ -465,7 +493,9 @@ def _build_section5_prompts(
 - 표 아래에 각 지표별 해설을 서술한다.
 - 주장별 판정 결과를 종합해 기술도입 가능성을 평가한다.
 """
-    return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+        return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+    except Exception as exc:
+        return _prompt_builder_fallback('section5', all_sources, exc)
 
 
 def _build_section6_prompts(
@@ -474,11 +504,12 @@ def _build_section6_prompts(
     company_context_section6: str,
     all_sources: list[SourceItem],
 ) -> tuple[str, str, list[int]]:
-    system_prompt = _build_section_system_prompt(
-        f"기술도입 로드맵용 회사 컨텍스트:\n{company_context_section6 or '제공된 section6 전용 컨텍스트 없음'}",
-        all_sources,
-    )
-    user_prompt = f"""섹션 제목은 '### 기술도입 로드맵 및 체크리스트'로 시작하세요.
+    try:
+        system_prompt = _build_section_system_prompt(
+            f"기술도입 로드맵용 회사 컨텍스트:\n{company_context_section6 or '제공된 section6 전용 컨텍스트 없음'}",
+            all_sources,
+        )
+        user_prompt = f"""섹션 제목은 '### 기술도입 로드맵 및 체크리스트'로 시작하세요.
 회사명: {report_input.company_name}
 검증 대상 기술: {_tech_label(report_input.claims)}
 
@@ -509,7 +540,9 @@ CRI: {report_input.regulatory.cri_estimate or '-'}
 - 체크리스트 표는 '항목 | 중요도 | 관련 지표 | 비고' 컬럼을 사용한다.
 - 컨텍스트가 불충분한 부분은 "(추정)"을 표시한다.
 """
-    return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+        return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+    except Exception as exc:
+        return _prompt_builder_fallback('section6', all_sources, exc)
 
 
 def _build_section7(all_sources: list[SourceItem]) -> SectionDraft:
@@ -652,21 +685,26 @@ async def generate_report(
         industrial_sources = _sources_for_refs(all_sources, report_input.industrial.sources)
         regulatory_sources = _sources_for_refs(all_sources, report_input.regulatory.sources)
 
+        section1_prompts = _build_section1_prompts(report_input, company_context, all_sources)
+        section2_prompts = _build_section2_prompts(report_input, scientific_sources)
+        section3_prompts = _build_section3_prompts(report_input, industrial_sources)
+        section4_prompts = _build_section4_prompts(report_input, regulatory_sources)
+
         section1_task = _generate_section(
             'section1',
-            *_build_section1_prompts(report_input, company_context, all_sources),
+            *section1_prompts,
         )
         section2_task = _generate_section(
             'section2',
-            *_build_section2_prompts(report_input, scientific_sources),
+            *section2_prompts,
         )
         section3_task = _generate_section(
             'section3',
-            *_build_section3_prompts(report_input, industrial_sources),
+            *section3_prompts,
         )
         section4_task = _generate_section(
             'section4',
-            *_build_section4_prompts(report_input, regulatory_sources),
+            *section4_prompts,
         )
 
         section1, section2, section3, section4 = await asyncio.gather(
@@ -765,8 +803,8 @@ def _industrial_sources_md(industrial: IndustrialAgentOutput) -> str:
         return "\n".join(lines)
     for n in industrial.news[:12]:
         line = f"- **{n.title}**"
-        if n.provider:
-            line += f" — {n.provider}"
+        if n.publisher:
+            line += f" — {n.publisher}"
         lines.append(line)
         if n.published_at:
             lines.append(f"  - 일자: {n.published_at}")
