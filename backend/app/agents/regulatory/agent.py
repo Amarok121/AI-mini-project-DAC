@@ -1,4 +1,4 @@
-"""규제 에이전트: Tavily → 법령명 추출 → 포털 fetch → OpenAI 적용성 평가."""
+"""규제 에이전트: Tavily → LangChain(OpenAI JSON) 법령명 추출 → 포털 fetch → LangChain 해석."""
 
 from __future__ import annotations
 

@@ -20,8 +20,11 @@ import httpx
 from app.core.config import settings
 
 from app.agents.regulatory.tavily_search import TavilyHit
+from app.agents.regulatory.eurlex import try_fetch_eu_from_sources
 
 logger = logging.getLogger(__name__)
+
+_LAW_DETAIL_URL = "https://www.law.go.kr/DRF/lawService.do"
 
 
 @dataclass
@@ -72,6 +75,47 @@ def _classify_law_name(name: str) -> str:
     return "UNK"
 
 
+def _flatten_law_service_json(data: dict) -> str:
+    """lawService JSON에서 사람이 읽을 수 있는 요약 문자열 추출 (버전별 차이 흡수)."""
+    if not isinstance(data, dict):
+        return ""
+    # 흔한 키 후보
+    for key in ("LawService", "lawService", "법령", "Law"):
+        block = data.get(key)
+        if isinstance(block, dict):
+            parts: list[str] = []
+            for k in ("법령명한글", "법령명약칭", "공포일자", "시행일자", "소관부처명"):
+                if k in block:
+                    parts.append(f"{k}: {block[k]}")
+            if "조문" in block or "조문단위" in block:
+                parts.append("(조문 데이터 포함 — 일부만 표시)")
+            if parts:
+                return "\n".join(parts)[:10000]
+    return json.dumps(data, ensure_ascii=False)[:12000]
+
+
+def _fetch_law_detail_sync(oc: str, mst: str) -> str:
+    """법령일련번호(MST)로 lawService 상세(JSON)."""
+    mst = (mst or "").strip()
+    if not mst:
+        return ""
+    params = {
+        "OC": oc,
+        "target": "law",
+        "MST": mst,
+        "type": "JSON",
+    }
+    try:
+        with httpx.Client(timeout=25.0) as client:
+            r = client.get(_LAW_DETAIL_URL, params=params)
+            r.raise_for_status()
+            data = r.json()
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError) as e:
+        logger.info("law.go.kr lawService failed MST=%s: %s", mst, e)
+        return ""
+    return _flatten_law_service_json(data) if isinstance(data, dict) else str(data)[:12000]
+
+
 def _fetch_law_go_kr_sync(keyword: str) -> tuple[str, str]:
     oc = (settings.LAW_GO_KR_API_KEY or "").strip()
     if not oc:
@@ -82,7 +126,7 @@ def _fetch_law_go_kr_sync(keyword: str) -> tuple[str, str]:
         "target": "law",
         "type": "JSON",
         "query": keyword[:200],
-        "display": 3,
+        "display": 5,
     }
     try:
         with httpx.Client(timeout=20.0) as client:
@@ -93,22 +137,31 @@ def _fetch_law_go_kr_sync(keyword: str) -> tuple[str, str]:
         logger.info("law.go.kr fetch failed for %s: %s", keyword, e)
         return "", ""
 
-    # 응답 구조는 버전에 따라 다를 수 있어 방어적으로 파싱
-    lines: list[str] = []
     law_block = data.get("LawSearch") or data.get("lawSearch") or {}
     items = law_block.get("law") or law_block.get("Law") or []
     if isinstance(items, dict):
         items = [items]
     if not isinstance(items, list):
-        return json.dumps(data, ensure_ascii=False)[:12000], ""
+        return json.dumps(data, ensure_ascii=False)[:12000], "https://www.law.go.kr"
 
-    for it in items[:3]:
+    chunks: list[str] = []
+    for it in items[:5]:
         if not isinstance(it, dict):
             continue
         title = it.get("법령명한글") or it.get("lawName") or it.get("nm") or ""
         lid = it.get("법령ID") or it.get("lawId") or ""
-        lines.append(f"- {title} (ID: {lid})")
-    text = "\n".join(lines) if lines else json.dumps(data, ensure_ascii=False)[:8000]
+        mst = it.get("법령일련번호") or it.get("MST") or ""
+        dept = it.get("소관부처명") or ""
+        line = f"### {title}\n- 법령ID: {lid} | 소관: {dept}\n"
+        if mst:
+            detail = _fetch_law_detail_sync(oc, str(mst))
+            if detail:
+                line += "\n--- 상세(법령일련번호 기준) ---\n" + detail[:9000] + "\n"
+            else:
+                line += f"- 법령일련번호: {mst} (상세 본문은 API 응답 형식 확인 필요)\n"
+        chunks.append(line)
+
+    text = "\n".join(chunks) if chunks else json.dumps(data, ensure_ascii=False)[:8000]
     return text, "https://www.law.go.kr"
 
 
@@ -202,19 +255,32 @@ def fetch_portal_documents_sync(
             )
             notes.append(f"[US] '{raw_name}': Federal Register 요약 수집")
         elif region == "EU":
+            eu_text, eu_url, celex = try_fetch_eu_from_sources(raw_name, tavily_hits)
+            if eu_text:
+                label = f"eur-lex (CELEX {celex})" if celex else "eur-lex"
+                docs.append(
+                    PortalDocument(
+                        law_name=raw_name,
+                        source=label,
+                        text=eu_text,
+                        url=eu_url or "",
+                    )
+                )
+                notes.append(f"[EU] '{raw_name}': EUR-Lex 본문 fetch ({celex or 'CELEX 미상'})")
+                continue
             text, url = _eu_from_tavily_hits(raw_name, tavily_hits)
             if not text:
-                notes.append(f"[EU] '{raw_name}': Tavily eur-lex 히트 없음")
+                notes.append(f"[EU] '{raw_name}': CELEX·Tavily eur-lex 모두 없음")
                 continue
             docs.append(
                 PortalDocument(
                     law_name=raw_name,
-                    source="eur-lex (Tavily snippet)",
+                    source="eur-lex (Tavily snippet fallback)",
                     text=text,
                     url=url,
                 )
             )
-            notes.append(f"[EU] '{raw_name}': EUR-Lex 대체 스니펫 사용")
+            notes.append(f"[EU] '{raw_name}': EUR-Lex 스니펫 폴백")
         else:
             notes.append(f"[?] '{raw_name}': 지역 분류 불명 — 스킵")
 

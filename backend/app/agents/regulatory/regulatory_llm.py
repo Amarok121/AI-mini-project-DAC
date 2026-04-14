@@ -1,19 +1,20 @@
-"""Step 4: 원문·스니펫을 바탕으로 보수적 규제 적용성 평가 (OpenAI JSON)."""
+"""Step 4: 원문·스니펫을 바탕으로 보수적 규제 적용성 평가 (LangChain + OpenAI JSON)."""
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 from typing import Any, Optional
 
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
 from app.core.config import settings
 
+from app.agents.langchain_setup import get_chat_model
 from app.agents.regulatory.portal_fetch import PortalDocument
 from app.agents.regulatory.tavily_search import TavilyHit
 
 logger = logging.getLogger(__name__)
-
 
 _ANALYSIS_SCHEMA_HINT = """{
   "applicable_regulations": string[],
@@ -25,8 +26,29 @@ _ANALYSIS_SCHEMA_HINT = """{
   "requires_expert_review": boolean
 }"""
 
+REGULATORY_ANALYSIS_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            (
+                "You are a cautious regulatory analyst for industrial and climate policy. "
+                "Prefer '불명확' when evidence is incomplete. Korean labels for verdict/confidence as specified."
+            ),
+        ),
+        ("user", "{user_msg}"),
+    ]
+)
 
-def _openai_analyze_sync(
+
+def _analysis_chain():
+    return (
+        REGULATORY_ANALYSIS_PROMPT
+        | get_chat_model(temperature=0.15, json_mode=True)
+        | JsonOutputParser()
+    )
+
+
+async def analyze_regulatory_impact(
     claims_context: str,
     portal_docs: list[PortalDocument],
     tavily_hits: list[TavilyHit],
@@ -34,22 +56,19 @@ def _openai_analyze_sync(
     if not (settings.OPENAI_API_KEY or "").strip():
         return None, "OPENAI_API_KEY 미설정"
 
-    try:
-        from openai import OpenAI
-    except ImportError:
-        return None, "openai 패키지 미설치"
-
     portal_block = "\n\n---\n\n".join(
         f"[{d.law_name} | {d.source}]\n{d.text}" for d in portal_docs
     )
     if not portal_block.strip():
-        portal_block = "(정부 포털에서 가져온 텍스트가 없습니다. 아래 Tavily 스니펫만 근거로 판단하되, 불확실하면 반드시 불명확 처리하세요.)"
+        portal_block = (
+            "(정부 포털에서 가져온 텍스트가 없습니다. 아래 Tavily 스니펫만 근거로 판단하되, "
+            "불확실하면 반드시 불명확 처리하세요.)"
+        )
 
     tavily_block = "\n\n".join(
         f"[{h.title}] {h.url}\n{h.content}" for h in tavily_hits[:12]
     )
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
     user_msg = f"""검증할 기술·클레임 맥락:
 {claims_context.strip() or "(클레임 없음)"}
 
@@ -67,34 +86,13 @@ def _openai_analyze_sync(
 {_ANALYSIS_SCHEMA_HINT}
 """
 
-    resp = client.chat.completions.create(
-        model=settings.OPENAI_MODEL,
-        temperature=0.15,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a cautious regulatory analyst for industrial and climate policy. "
-                    "Prefer '불명확' when evidence is incomplete. Korean labels for verdict/confidence as specified."
-                ),
-            },
-            {"role": "user", "content": user_msg},
-        ],
-    )
-    raw = (resp.choices[0].message.content or "").strip()
     try:
-        return json.loads(raw), None
-    except json.JSONDecodeError:
-        logger.warning("regulatory_llm JSON failed: %s", raw[:800])
-        return None, "규제 해석 JSON 파싱 실패"
+        data: Any = await _analysis_chain().ainvoke({"user_msg": user_msg})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("regulatory analysis chain failed: %s", exc)
+        return None, str(exc)
 
+    if not isinstance(data, dict):
+        return None, "규제 해석 응답 형식 오류"
 
-async def analyze_regulatory_impact(
-    claims_context: str,
-    portal_docs: list[PortalDocument],
-    tavily_hits: list[TavilyHit],
-) -> tuple[Optional[dict[str, Any]], Optional[str]]:
-    return await asyncio.to_thread(
-        _openai_analyze_sync, claims_context, portal_docs, tavily_hits
-    )
+    return data, None

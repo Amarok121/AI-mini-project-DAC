@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     KIPRIS_API_KEY: str = ''
     TAVILY_API_KEY: str = ''
     LAW_GO_KR_API_KEY: str = ''
+    # OpenAlex 권장: User-Agent에 연락용 이메일 (https://docs.openalex.org)
+    OPENALEX_CONTACT_EMAIL: str = 'dev@localhost'
     DART_API_KEY: str = ''
     DART_DOCS_DIR: str = './data/dart'
 

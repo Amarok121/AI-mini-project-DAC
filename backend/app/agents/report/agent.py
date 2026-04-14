@@ -71,7 +71,7 @@ async def run(
 - 최종 판단: **{cross_validation.overall_verdict}**
 
 ## 2. Agent 요약
-- Scientific: {scientific.overall_grade} ({scientific.trl_estimate})
+- Scientific: {scientific.overall_grade} ({scientific.trl_estimate}){f" — GRADE 스켈레톤 가중평균(상위3): {scientific.grade_breakdown.weighted_total}" if scientific.grade_breakdown else ""}
 - Industrial: {industrial.overall_level} ({industrial.mrl_estimate})
 - Regulatory: {regulatory.verdict} ({regulatory.confidence})
 
