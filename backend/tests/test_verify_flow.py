@@ -14,3 +14,4 @@ def test_verify_returns_result_immediately():
     assert 'report_markdown' in body
     assert 'cross_validation' in body
     assert isinstance(body['claims'], list)
+    assert '근거·출처' in body['report_markdown']

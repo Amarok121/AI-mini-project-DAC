@@ -128,7 +128,19 @@ cp .env.example .env
 - Regulatory: `RegulatoryAgentOutput` — `verdict`, `confidence`, `applicable_regulations`, `source_urls`, `pipeline_notes`, `extracted_law_candidates`, `error` 등.
 - 자연어 “프롬프트”로 입출력 전체가 정의된 것은 아니며, **규제 LLM 두 단계**(`law_extract`, `regulatory_llm`)에 시스템/유저 메시지가 명시되어 있다.
 
+### 2026-04-14 (추가) — Claim extractor·보고서 출처
+
+- **`claim_extractor`**: LangChain `ChatPromptTemplate` + OpenAI JSON으로 본문에서 최대 10개 `Claim` 추출. `OPENAI_API_KEY`가 없으면 본문 앞부분을 요약한 **폴백 클레임 1건**으로 파이프라인 유지.
+- **`report`**: 마크다운에 **§3 근거·출처** — Scientific 상위 논문별 링크·DOI·arXiv·OpenAlex·S2 ID, Industrial 뉴스 링크. 규제 섹션은 **§5**로 번호 조정(기존 §4 참고 링크 유지).
+
+### 2026-04-14 (추가) — Claim 강화 (few-shot·검증·스키마)
+
+- **Few-shot**: 시스템 프롬프트에 JSON 형식 예시 2건(한·영 혼합) 추가.
+- **후처리**: 최소 길이(10자)·중복 제거(제목+주장 접두)·본문과의 토큰 겹침 휴리스틱으로 환각 후보 제거; 전부 탈락 시 폴백.
+- **필드**: `schemas/claim.py`에 `Field`로 길이·기본값 정리; `type`은 허용 집합 외 **일반**으로 통일.
+- **테스트**: `tests/conftest.py`에서 루트 `.env` 선로드; `test_claim_extractor_integration.py`는 `OPENAI_API_KEY` 있을 때만 실 API 호출(없으면 skip).
+
 **알려진 한계 / 후속**
-- `claim_extractor`는 아직 스켈레톤(고정 클레임 1건)이라, 스모크 시 검색 쿼리·상위 논문 관련성이 기대와 다를 수 있음.
+- 클레임 품질은 입력 길이·LLM에 의존; 후속으로 스키마 검증·후처리·Few-shot을 강화할 수 있음.
 - `backend/app/tools/` 디렉터리는 팀 명세상 계획이며, Industrial은 현재 `agents/industrial/`에서 동작.
 - 논문/규제 검색 **부족 시 재시도 루프**는 미구현 — 레이트 리밋·비용 고려해 상한·백오프와 함께 도입 검토.
