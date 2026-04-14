@@ -183,6 +183,7 @@ def paper_result_from_parts(
     oa_id: str,
     arxiv_id: str = '',
     doi: str = '',
+    pdf_url: str = '',
 ) -> PaperResult:
     gl = cast(
         Literal["HIGH", "MED", "LOW"],
@@ -202,4 +203,5 @@ def paper_result_from_parts(
         openalex_id=oa_id,
         arxiv_id=arxiv_id,
         doi=doi,
+        pdf_url=pdf_url,
     )

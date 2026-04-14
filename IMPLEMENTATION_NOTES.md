@@ -133,6 +133,13 @@ cp .env.example .env
 - **`claim_extractor`**: LangChain `ChatPromptTemplate` + OpenAI JSON으로 본문에서 최대 10개 `Claim` 추출. `OPENAI_API_KEY`가 없으면 본문 앞부분을 요약한 **폴백 클레임 1건**으로 파이프라인 유지.
 - **`report`**: 마크다운에 **§3 근거·출처** — Scientific 상위 논문별 링크·DOI·arXiv·OpenAlex·S2 ID, Industrial 뉴스 링크. 규제 섹션은 **§5**로 번호 조정(기존 §4 참고 링크 유지).
 
+### 2026-04-14 (추가) — 교차검증용 문서 URL 전달
+
+- **`PaperResult.pdf_url`**: Semantic Scholar `openAccessPdf.url`, arXiv는 `https://arxiv.org/pdf/{id}.pdf` 규칙.
+- **`RegulatoryAgentOutput.documents_for_validation`**: 포털 `PortalDocument`에서 법령명·대표 URL·PDF(가능 시: EU CELEX→EUR-Lex PDF, US Federal Register `pdf_url`) 참조.
+- **`CrossValidatorOutput`**: `papers_for_validation`, `regulations_for_validation` — 외부 파서/평가 모듈이 바이너리 대신 URL로 받도록 정렬(본 저장소는 PDF 파싱 안 함).
+- **PDF URL 동작 확인**: `backend/scripts/check_pdf_urls.py` — HEAD(또는 소량 GET)로 `application/pdf` 또는 `%PDF` 시그니처 검사. 인자 없이 실행 시 arXiv 샘플 URL로 스모크.
+
 ### 2026-04-14 (추가) — Claim 강화 (few-shot·검증·스키마)
 
 - **Few-shot**: 시스템 프롬프트에 JSON 형식 예시 2건(한·영 혼합) 추가.
