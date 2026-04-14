@@ -17,6 +17,19 @@ from app.agents.regulatory.tavily_search import TavilyHit
 logger = logging.getLogger(__name__)
 
 _ANALYSIS_SCHEMA_HINT = """{
+  "evidences": {
+    "title": string,
+    "url": string,
+    "source": string,
+    "published_at": string,
+    "summary": string,
+    "excerpt": string,
+    "key_point": string,
+    "conditions": string[],
+    "limitations": string[],
+    "flags": string[],
+    "reason": string
+  }[],
   "applicable_regulations": string[],
   "incentives": string[],
   "risks": string[],
@@ -80,9 +93,11 @@ async def analyze_regulatory_impact(
 {tavily_block}
 
 요구사항:
+- 본 작업에서 "DAC"는 **Direct Air Capture(직접공기포집)** 을 의미한다. 세법/행정협력 지침 등 동명의 약어(예: EU의 Directive on Administrative Cooperation)로 오해하지 말 것.
 - 공식 원문이 없거나 불충분하면 verdict는 "불명확", confidence는 "LOW" 또는 "MED".
 - 인센티브·세제(예: 45Q)는 조건(규모, 연간 톤수 등)을 reason에 숫자와 함께 명시.
-- `evidence_summary`: 교차검증·보고서용 근거 팩. 한국어 3~6문장. 어떤 출처를 근거로 했는지, 적용 가능성·불확실성·전문가 검토 필요 여부를 요약 (reason과 중복 가능하나 서술형으로 독립 읽기 가능하게).
+- `evidences`: 논문 evidence처럼, 규제/인센티브 근거 아이템을 3~6개로 정리한다. 각 아이템에 `summary`(3~6문장), `excerpt`(핵심 문장 1개), `conditions`/`limitations`/`flags`/`reason`을 포함한다. `title`은 문서명/공고명, `url`은 해당 근거 링크, `source`는 도메인/기관명.
+- `evidence_summary`: 교차검증·보고서용 근거 팩. 한국어 **3~6문장**이며, 가능한 한 **최소 350자 이상**으로 쓴다. 어떤 출처(정부 포털/공식 도메인/스니펫)를 근거로 했는지, 적용 가능성·불확실성·전문가 검토 필요 여부를 서술형으로 독립 읽기 가능하게 요약한다 (reason과 중복 가능).
 - 환각 금지: 텍스트에 없는 조문 번호를 지어내지 마세요.
 - JSON만 출력. 스키마:
 {_ANALYSIS_SCHEMA_HINT}

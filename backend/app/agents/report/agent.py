@@ -60,8 +60,8 @@ def _industrial_sources_md(industrial: IndustrialAgentOutput) -> str:
         return "\n".join(lines)
     for n in industrial.news[:12]:
         line = f"- **{n.title}**"
-        if n.provider:
-            line += f" — {n.provider}"
+        if n.publisher:
+            line += f" — {n.publisher}"
         lines.append(line)
         if n.published_at:
             lines.append(f"  - 일자: {n.published_at}")
