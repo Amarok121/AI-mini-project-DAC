@@ -96,7 +96,7 @@ class NewsEvidenceNarrative(BaseModel):
 
 class NewsResult(BaseModel):
     title: str
-    provider: str = ''
+    publisher: str = ''
     published_at: str = ''
     url: str = ''
     excerpt: str = ''
@@ -188,9 +188,26 @@ class ClaimVerificationResult(BaseModel):
     cri: str = 'CRI 1~3'
 
 
+class PerformanceGapResult(BaseModel):
+    metric: str
+    sci_val: float
+    ind_val: float
+    hype_index: float
+    status: str
+    description: str
+    analyst_note: str
+
+class RegulatoryConflictResult(BaseModel):
+    conflict_type: str
+    severity: str
+    description: str
+    analyst_note: str
+
 class CrossValidatorOutput(BaseModel):
+    """CVA의 최종 분석 결과물"""
     results: list[ClaimVerificationResult] = []
     overall_verdict: str = '판단 보류'
     conflicts: list[str] = []
-    papers_for_validation: list[SelectedPaperDocument] = Field(default_factory=list)
-    regulations_for_validation: list[SelectedRegulatoryDocument] = Field(default_factory=list)
+    performance_gaps: list[PerformanceGapResult] = []
+    regulatory_conflicts: list[RegulatoryConflictResult] = []
+    fake_claims_detected: list[Claim] = []
