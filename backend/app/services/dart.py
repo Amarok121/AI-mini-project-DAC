@@ -14,6 +14,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 MIN_CHUNK_LENGTH = 80
+MIN_PARAGRAPH_LENGTH = 50
 COMPANY_NAME = 'sk_innovation'
 TABLE_SUMMARY_MODEL = 'gpt-4o-mini'
 _TEXT_SPLITTER = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
@@ -45,9 +46,14 @@ def _get_openai_client() -> OpenAI | None:
 
 
 def _read_pdf_as_markdown(pdf_path: Path) -> str:
+    logger.info('[dart] %s 파싱 시작', pdf_path.name)
     try:
-        return pymupdf4llm.to_markdown(str(pdf_path))
+        markdown = pymupdf4llm.to_markdown(str(pdf_path))
+        page_count = markdown.count('\f') + 1 if markdown else 0
+        logger.info('[dart] %s 마크다운 변환 완료 (%s페이지)', pdf_path.name, page_count)
+        return markdown
     except Exception as exc:
+        logger.warning('[dart] %s pymupdf4llm 실패, pdfplumber 폴백', pdf_path.name)
         logger.warning('pymupdf4llm failed for %s, falling back to pdfplumber: %s', pdf_path, exc)
         pages: list[str] = []
         with pdfplumber.open(str(pdf_path)) as pdf:
@@ -55,6 +61,7 @@ def _read_pdf_as_markdown(pdf_path: Path) -> str:
                 text = page.extract_text() or ''
                 if text.strip():
                     pages.append(text)
+        logger.info('[dart] %s 마크다운 변환 완료 (%s페이지)', pdf_path.name, len(pages))
         return '\n\n'.join(pages)
 
 
@@ -63,13 +70,40 @@ def _normalize_markdown(markdown_text: str) -> list[str]:
     return normalized.split('\n')
 
 
-def _is_heading_line(line: str) -> bool:
-    stripped = line.strip()
-    return stripped.startswith('## ') or stripped.startswith('### ')
+def _split_blocks(markdown_text: str) -> list[str]:
+    normalized = markdown_text.replace('\r\n', '\n').replace('\r', '\n')
+    blocks = re.split(r'\n\s*\n', normalized)
+    return [block.strip() for block in blocks if block.strip()]
+
+
+def _strip_heading_marker(text: str) -> str:
+    return re.sub(r'^#{1,6}\s*', '', text.strip())
+
+
+def _is_heading_block(block: str) -> bool:
+    stripped = block.strip()
+    if not stripped:
+        return False
+    if stripped.startswith('#'):
+        return len(_strip_heading_marker(stripped)) <= 100
+
+    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    return len(lines) == 1 and len(lines[0]) <= 50
+
+
+def _is_paragraph_reclassified_heading(block: str) -> bool:
+    stripped = block.strip()
+    return stripped.startswith('#') and len(_strip_heading_marker(stripped)) > 100
 
 
 def _is_table_line(line: str) -> bool:
     return line.lstrip().startswith('|')
+
+
+def _is_table_block(block: str) -> bool:
+    lines = [line.strip() for line in block.splitlines() if line.strip()]
+    table_like_lines = [line for line in lines if '|' in line]
+    return bool(lines) and (_is_table_line(lines[0]) or len(table_like_lines) >= 2)
 
 
 def _clean_text(text: str) -> str:
@@ -78,7 +112,15 @@ def _clean_text(text: str) -> str:
     return text
 
 
+def _normalize_paragraph_block(block: str) -> str:
+    lines = [line.strip() for line in block.splitlines() if line.strip()]
+    return re.sub(r'\s+', ' ', ' '.join(lines)).strip()
+
+
 def _summarize_table(table_markdown: str) -> str:
+    if not settings.TABLE_SUMMARY_ENABLED:
+        return '표 요약이 비활성화되어 원문 표를 그대로 저장합니다.'
+
     client = _get_openai_client()
     if client is None:
         logger.warning('OPENAI_API_KEY is missing. Using fallback summary for table chunk.')
@@ -131,8 +173,8 @@ def _append_paragraph_documents(
     paragraph_text: str,
     chunk_index: int,
 ) -> int:
-    text = _clean_text(paragraph_text)
-    if len(text) < MIN_CHUNK_LENGTH:
+    text = _normalize_paragraph_block(paragraph_text)
+    if len(text) < MIN_PARAGRAPH_LENGTH:
         return chunk_index
 
     for split in _TEXT_SPLITTER.split_text(text):
@@ -146,41 +188,16 @@ def _append_paragraph_documents(
 def load_and_chunk(pdf_path: str) -> list[Document]:
     path = Path(pdf_path)
     markdown_text = _read_pdf_as_markdown(path)
-    lines = _normalize_markdown(markdown_text)
+    blocks = _split_blocks(markdown_text)
 
     documents: list[Document] = []
     chunk_index = 0
-    loose_paragraph_lines: list[str] = []
-    heading_lines: list[str] = []
-    in_heading = False
-    current_heading_lines: list[str] = []
-
-    def flush_heading() -> None:
-        nonlocal chunk_index, current_heading_lines, in_heading
-        if not current_heading_lines:
-            in_heading = False
-            return
-        doc = _build_document('\n'.join(current_heading_lines), path.name, 'heading', chunk_index)
-        if doc is not None:
-            documents.append(doc)
-            chunk_index += 1
-        current_heading_lines = []
-        in_heading = False
-
-    def flush_loose_paragraphs() -> None:
-        nonlocal chunk_index, loose_paragraph_lines
-        if not loose_paragraph_lines:
-            return
-        chunk_index = _append_paragraph_documents(
-            documents,
-            path.name,
-            '\n'.join(loose_paragraph_lines),
-            chunk_index,
-        )
-        loose_paragraph_lines = []
+    heading_count = 0
+    table_count = 0
+    paragraph_count = 0
 
     def flush_table(table_lines: list[str]) -> None:
-        nonlocal chunk_index
+        nonlocal chunk_index, table_count
         table_text = _clean_text('\n'.join(table_lines))
         if len(table_text) < MIN_CHUNK_LENGTH:
             return
@@ -190,40 +207,33 @@ def load_and_chunk(pdf_path: str) -> list[Document]:
         if doc is not None:
             documents.append(doc)
             chunk_index += 1
+            table_count += 1
 
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-
-        if _is_table_line(line):
-            flush_loose_paragraphs()
-            table_lines: list[str] = []
-            while i < len(lines) and _is_table_line(lines[i]):
-                table_lines.append(lines[i].rstrip())
-                i += 1
-            if in_heading:
-                current_heading_lines.append('')
-            flush_table(table_lines)
+    for block in blocks:
+        if _is_table_block(block):
+            flush_table([line.rstrip() for line in block.splitlines() if line.strip()])
             continue
 
-        if _is_heading_line(line):
-            flush_loose_paragraphs()
-            flush_heading()
-            in_heading = True
-            current_heading_lines = [line.strip()]
-            i += 1
+        if _is_heading_block(block) and not _is_paragraph_reclassified_heading(block):
+            doc = _build_document(block, path.name, 'heading', chunk_index)
+            if doc is not None:
+                documents.append(doc)
+                chunk_index += 1
+                heading_count += 1
             continue
 
-        stripped = line.strip()
-        if in_heading:
-            current_heading_lines.append(stripped if stripped else '')
-        else:
-            heading_lines.append(stripped)
-            loose_paragraph_lines.append(stripped if stripped else '')
-        i += 1
+        before = chunk_index
+        paragraph_source = _strip_heading_marker(block) if _is_paragraph_reclassified_heading(block) else block
+        chunk_index = _append_paragraph_documents(documents, path.name, paragraph_source, chunk_index)
+        paragraph_count += chunk_index - before
 
-    flush_loose_paragraphs()
-    flush_heading()
+    logger.info(
+        '[dart] %s 청킹 완료 — heading %s개 / table %s개 / paragraph %s개',
+        path.name,
+        heading_count,
+        table_count,
+        paragraph_count,
+    )
     return documents
 
 

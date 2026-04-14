@@ -9,17 +9,24 @@ from openai import AsyncOpenAI
 from app.agents.report.pdf_export import export_pdf
 from app.core.config import settings
 from app.schemas.agent_result import (
-    CitationMetadataItem,
     CrossValidatorOutput,
     IndustrialAgentOutput,
     RegulatoryAgentOutput,
-    ReportInput,
-    ReportOutput,
     ScientificAgentOutput,
-    SectionDraft,
-    SourceItem,
 )
 from app.schemas.claim import Claim, ClaimJudgement
+from app.schemas.report import (
+    ChartData,
+    CitationMeta,
+    ClaimVerdictChart,
+    ReportInput,
+    ReportOutput,
+    RoadmapStep,
+    ScoreItem,
+    ScoreSummary,
+    SectionDraft,
+)
+from app.schemas.source import SourceItem
 
 
 logger = logging.getLogger(__name__)
@@ -49,6 +56,46 @@ _SECTION_TITLES = {
     'section7': '참고문헌',
 }
 
+_TRL_LABELS = {
+    1: '기초 이론/실험 단계',
+    2: '기술개발 개념 정립 단계',
+    3: '실험실 기본성능 검증 단계',
+    4: '실험실 핵심성능 평가 단계',
+    5: '실험실 시작품 제작 및 성능 평가 단계',
+    6: '파일럿 규모 시작품 제작 및 성능 평가 단계',
+    7: '신뢰성 평가 및 수요기업 평가 단계',
+    8: '시제품 인증 및 표준화 단계',
+    9: '양산 및 사업화 단계',
+}
+
+_MRL_LABELS = {
+    1: '기본 제조 개념 도출 단계',
+    2: '제조 개념 및 적용 가능성 정의 단계',
+    3: '제조 개념 검증 단계',
+    4: '실험실 환경 제조 능력 검증 단계',
+    5: '관련 환경 생산 능력 검증 단계',
+    6: '시제품 제작 및 생산 단계',
+    7: '시험 인증 단계 (LRIP)',
+    8: '본격 생산 준비 단계',
+    9: '본격 생산 단계',
+    10: '양산 단계',
+}
+
+_CRI_LABELS = {
+    1: '가상적 상업화 제안 단계',
+    2: '소규모 상업 시험 단계',
+    3: '상업적 규모 확대 단계',
+    4: '다수 상업적 적용 단계',
+    5: '시장 경쟁 단계',
+    6: '은행 자산 등급 단계 (완전 성숙)',
+}
+
+_CONFIDENCE_SCORES = {
+    'HIGH': 0.9,
+    'MED': 0.6,
+    'LOW': 0.3,
+}
+
 
 def _get_client() -> AsyncOpenAI | None:
     if not settings.OPENAI_API_KEY:
@@ -71,11 +118,23 @@ def _safe_join(items: list[str]) -> str:
     return ', '.join([item for item in items if item]) if items else ''
 
 
-def _build_apa_citation(source: SourceItem) -> str:
-    if source.apa_citation:
-        return source.apa_citation
+def _extract_first_int(value: str | None) -> int | None:
+    if not value:
+        return None
+    digits = [token for token in ''.join(ch if ch.isdigit() else ' ' for ch in value).split() if token.isdigit()]
+    if not digits:
+        return None
+    try:
+        return int(digits[0])
+    except ValueError:
+        return None
 
-    year = str(source.year) if source.year else 'n.d.'
+
+def _build_apa_citation(source: SourceItem) -> str:
+    if source.apa7_citation:
+        return source.apa7_citation
+
+    year = str(source.year) if source.year is not None else 'n.d.'
     title = source.title or '제목 미상'
     publisher = source.publisher or '발행처 미상'
     url = source.url or ''
@@ -100,7 +159,7 @@ def _normalize_sources(report_input: ReportInput) -> list[SourceItem]:
         report_input.cross_validation,
     ]:
         for source in getattr(result, 'sources', []):
-            key = f'{source.title}|{source.url}|{source.snippet}'
+            key = f'{source.title}|{source.url}|{source.raw_text}'
             if key in seen:
                 continue
             seen.add(key)
@@ -111,8 +170,8 @@ def _normalize_sources(report_input: ReportInput) -> list[SourceItem]:
         assigned.append(
             source.model_copy(
                 update={
-                    'ref_id': str(index),
-                    'apa_citation': _build_apa_citation(source),
+                    'ref_id': index,
+                    'apa7_citation': _build_apa_citation(source),
                 }
             )
         )
@@ -120,11 +179,11 @@ def _normalize_sources(report_input: ReportInput) -> list[SourceItem]:
 
 
 def _sources_for_refs(all_sources: list[SourceItem], selected_sources: list[SourceItem]) -> list[SourceItem]:
-    selected_keys = {f'{source.title}|{source.url}|{source.snippet}' for source in selected_sources}
+    selected_keys = {f'{source.title}|{source.url}|{source.raw_text}' for source in selected_sources}
     return [
         source
         for source in all_sources
-        if f'{source.title}|{source.url}|{source.snippet}' in selected_keys
+        if f'{source.title}|{source.url}|{source.raw_text}' in selected_keys
     ]
 
 
@@ -137,10 +196,10 @@ def _build_source_index_block(sources: list[SourceItem]) -> str:
 def _format_source_line(source: SourceItem) -> str:
     title = source.title or '제목 미상'
     authors = _safe_join(source.authors) or '저자 미상'
-    year = str(source.year) if source.year else '연도 미상'
+    year = str(source.year) if source.year is not None else '연도 미상'
     publisher = source.publisher or '발행처 미상'
     url = source.url or 'URL 없음'
-    snippet = source.snippet or '스니펫 없음'
+    snippet = source.raw_text or '스니펫 없음'
     return (
         f"- ref_id={source.ref_id or '미지정'} | 유형={source.source_type} | 제목={title} | "
         f"저자={authors} | 연도={year} | 발행처={publisher} | URL={url} | 스니펫={snippet}"
@@ -224,7 +283,7 @@ async def _generate_section(
     section_id: str,
     system_context: str,
     user_prompt: str,
-    ref_ids: list[str],
+    ref_ids: list[int],
 ) -> SectionDraft:
     title = _SECTION_TITLES[section_id]
     try:
@@ -242,7 +301,7 @@ async def _generate_section(
         return _fallback_section(section_id, str(exc))
 
 
-def _section_sources_ref_ids(sources: list[SourceItem]) -> list[str]:
+def _section_sources_ref_ids(sources: list[SourceItem]) -> list[int]:
     return [source.ref_id for source in sources if source.ref_id]
 
 
@@ -259,7 +318,7 @@ def _build_section1_prompts(
     report_input: ReportInput,
     company_context: str,
     all_sources: list[SourceItem],
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, list[int]]:
     claims_table = _build_claims_table(report_input.claims)
     system_prompt = _build_section_system_prompt(
         f"회사 일반 현황 컨텍스트:\n{company_context or '제공된 회사 컨텍스트 없음'}",
@@ -286,7 +345,7 @@ def _build_section1_prompts(
 def _build_section2_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, list[int]]:
     scientific = report_input.scientific
     system_prompt = _build_section_system_prompt('과학적 근거 분석 섹션 작성', section_sources)
     user_prompt = f"""섹션 제목은 '### 과학적 근거 분석'으로 시작하세요.
@@ -312,7 +371,7 @@ TRL 판단 근거: {scientific.trl_rationale or '-'}
 def _build_section3_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, list[int]]:
     industrial = report_input.industrial
     system_prompt = _build_section_system_prompt('산업화 현황 분석 섹션 작성', section_sources)
     user_prompt = f"""섹션 제목은 '### 산업화 현황 분석'으로 시작하세요.
@@ -341,7 +400,7 @@ MRL 판단 근거: {industrial.mrl_rationale or '-'}
 def _build_section4_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, list[int]]:
     regulatory = report_input.regulatory
     system_prompt = _build_section_system_prompt('규제 및 법률 검토 섹션 작성', section_sources)
     user_prompt = f"""섹션 제목은 '### 규제 및 법률 검토'로 시작하세요.
@@ -371,7 +430,7 @@ def _build_section5_prompts(
     section3: SectionDraft,
     section4: SectionDraft,
     all_sources: list[SourceItem],
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, list[int]]:
     system_prompt = _build_section_system_prompt('최종 평가표 및 해설 섹션 작성', all_sources)
     metric_table = _build_metric_table(report_input)
     judgement_table = _build_claim_judgement_table(report_input.cross_validation.results, report_input.claims)
@@ -414,7 +473,7 @@ def _build_section6_prompts(
     section5: SectionDraft,
     company_context_section6: str,
     all_sources: list[SourceItem],
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, list[int]]:
     system_prompt = _build_section_system_prompt(
         f"기술도입 로드맵용 회사 컨텍스트:\n{company_context_section6 or '제공된 section6 전용 컨텍스트 없음'}",
         all_sources,
@@ -434,9 +493,20 @@ CRI: {report_input.regulatory.cri_estimate or '-'}
 {_format_sources_block(all_sources)}
 
 작성 요구:
-- SK이노베이션의 단계별 기술도입 로드맵을 구체적으로 작성한다.
-- 각 단계에서 필요한 인프라, 실증, 공급망, 규제 대응을 현실적으로 정리한다.
-- 도입 체크리스트를 마크다운 체크박스(- [ ]) 형식으로 제공한다.
+- SK이노베이션의 기술도입 로드맵을 4단계 이상 phase 기반으로 작성한다.
+- 각 phase는 반드시 아래 구조를 따른다:
+  - 단계명
+  - 목표
+  - TRL/MRL/CRI 목표 범위
+  - 핵심 과업
+  - 필요 자원/인프라
+  - 주요 리스크 및 게이트 조건
+- 로드맵은 단일 표 하나로 끝내지 말고 단계형 보고서 서술로 구성한다.
+- 체크리스트는 단일 '- [ ]' 나열 대신 아래 3개 범주로 나누어 표 형태로 작성한다:
+  - 기술 검증 체크리스트
+  - 생산/공급망 체크리스트
+  - 규제/사업화 체크리스트
+- 체크리스트 표는 '항목 | 중요도 | 관련 지표 | 비고' 컬럼을 사용한다.
 - 컨텍스트가 불충분한 부분은 "(추정)"을 표시한다.
 """
     return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
@@ -448,7 +518,7 @@ def _build_section7(all_sources: list[SourceItem]) -> SectionDraft:
         lines.append('- 참고문헌 정보가 제공되지 않았습니다.')
     else:
         for source in all_sources:
-            lines.append(f'- [^{source.ref_id}] {source.apa_citation}')
+            lines.append(f'- [^{source.ref_id}] {source.apa7_citation}')
 
     return SectionDraft(
         section_id='section7',
@@ -477,17 +547,97 @@ def _merge_markdown(report_input: ReportInput, section_drafts: list[SectionDraft
     )
 
 
-def _build_citation_metadata(all_sources: list[SourceItem]) -> list[CitationMetadataItem]:
+def _build_citation_metadata(all_sources: list[SourceItem]) -> list[CitationMeta]:
     return [
-        CitationMetadataItem(
+        CitationMeta(
             ref_id=source.ref_id,
-            apa_citation=source.apa_citation,
-            snippet=source.snippet,
+            apa7_citation=source.apa7_citation or '',
+            raw_text=source.raw_text,
             url=source.url,
             source_type=source.source_type,
         )
         for source in all_sources
     ]
+
+
+def _build_score_item(
+    value_text: str | None,
+    rationale: str,
+    min_value: int,
+    max_value: int,
+    labels: dict[int, str],
+) -> ScoreItem:
+    value = _extract_first_int(value_text)
+    return ScoreItem(
+        value=value,
+        min=min_value,
+        max=max_value,
+        label=labels.get(value, '평가 불가'),
+        rationale=(rationale or '').strip(),
+    )
+
+
+def _build_score_summary(report_input: ReportInput) -> ScoreSummary:
+    scientific = report_input.scientific
+    industrial = report_input.industrial
+    regulatory = report_input.regulatory
+    return ScoreSummary(
+        trl=_build_score_item(
+            scientific.trl_estimate,
+            scientific.trl_rationale or scientific.summary,
+            1,
+            9,
+            _TRL_LABELS,
+        ),
+        mrl=_build_score_item(
+            industrial.mrl_estimate,
+            industrial.mrl_rationale or industrial.summary,
+            1,
+            10,
+            _MRL_LABELS,
+        ),
+        cri=_build_score_item(
+            regulatory.cri_estimate,
+            regulatory.cri_rationale or regulatory.summary,
+            1,
+            6,
+            _CRI_LABELS,
+        ),
+    )
+
+
+def _confidence_to_float(value: str | None) -> float | None:
+    if value is None:
+        return None
+    return _CONFIDENCE_SCORES.get(value.upper())
+
+
+def _build_claim_verdicts(report_input: ReportInput) -> list[ClaimVerdictChart]:
+    claim_map = {claim.claim_id: claim for claim in report_input.claims}
+    charts: list[ClaimVerdictChart] = []
+    for judgement in report_input.cross_validation.results:
+        claim = claim_map.get(judgement.claim_id)
+        charts.append(
+            ClaimVerdictChart(
+                claim_id=judgement.claim_id or '',
+                claim_text=_claim_label(claim) if claim else (judgement.claim_id or '주장 정보 없음'),
+                verdict=judgement.judgement,
+                confidence=_confidence_to_float(judgement.overall_confidence) or 0.0,
+                scientific_confidence=_confidence_to_float(judgement.scientific_confidence),
+                industrial_confidence=_confidence_to_float(judgement.industrial_confidence),
+                regulatory_confidence=_confidence_to_float(judgement.regulatory_confidence),
+            )
+        )
+    return charts
+
+
+def _build_chart_data(report_input: ReportInput) -> ChartData:
+    # TODO: section6 완성 후 로드맵 파싱 또는 LLM 구조화 추출 연결
+    return ChartData(
+        score_summary=_build_score_summary(report_input),
+        claim_verdicts=_build_claim_verdicts(report_input),
+        roadmap_steps=[],
+    )
 
 
 async def generate_report(
@@ -497,6 +647,7 @@ async def generate_report(
 ) -> ReportOutput:
     try:
         all_sources = _normalize_sources(report_input)
+        chart_data = _build_chart_data(report_input)
         scientific_sources = _sources_for_refs(all_sources, report_input.scientific.sources)
         industrial_sources = _sources_for_refs(all_sources, report_input.industrial.sources)
         regulatory_sources = _sources_for_refs(all_sources, report_input.regulatory.sources)
@@ -537,13 +688,15 @@ async def generate_report(
 
         section_drafts = [section1, section2, section3, section4, section5, section6, section7]
         merged_markdown = _merge_markdown(report_input, section_drafts)
-        pdf_path = export_pdf(merged_markdown)
+        report_title = f'{_tech_label(report_input.claims)} 기술 검증 보고서'
+        pdf_path = export_pdf(merged_markdown, chart_data=chart_data, title=report_title)
 
         return ReportOutput(
             markdown=merged_markdown,
             report_markdown=merged_markdown,
             section_drafts=section_drafts,
             citation_metadata=_build_citation_metadata(all_sources),
+            chart_data=chart_data,
             pdf_path=pdf_path,
             error=None,
         )
@@ -554,6 +707,7 @@ async def generate_report(
             report_markdown='',
             section_drafts=[],
             citation_metadata=[],
+            chart_data=None,
             pdf_path=None,
             error=str(exc),
         )

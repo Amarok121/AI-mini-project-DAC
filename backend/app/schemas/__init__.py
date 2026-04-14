@@ -1,9 +1,9 @@
 from .agent_result import (
     AgentResultBase,
-    CitationMetadataItem,
     ClaimVerificationResult,
     CrossValidationResult,
     CrossValidatorOutput,
+    GradeDimensionScores,
     IndustrialAgentOutput,
     IndustrialResult,
     NewsResult,
@@ -11,24 +11,35 @@ from .agent_result import (
     PatentResult,
     RegulatoryAgentOutput,
     RegulatoryResult,
-    ReportInput,
-    ReportOutput,
     ScientificAgentOutput,
     ScientificResult,
-    SectionDraft,
-    SourceItem,
 )
 from .api import ReportResponse, VerificationRequest, VerificationResponse
 from .claim import Claim, ClaimJudgement
+from .report import (
+    ChartData,
+    CitationMeta,
+    ClaimVerdictChart,
+    ReportInput,
+    ReportOutput,
+    RoadmapStep,
+    ScoreItem,
+    ScoreSummary,
+    SectionDraft,
+)
+from .source import SourceItem
 
 __all__ = [
     'AgentResultBase',
-    'CitationMetadataItem',
+    'ChartData',
+    'CitationMeta',
     'Claim',
     'ClaimJudgement',
+    'ClaimVerdictChart',
     'ClaimVerificationResult',
     'CrossValidationResult',
     'CrossValidatorOutput',
+    'GradeDimensionScores',
     'IndustrialAgentOutput',
     'IndustrialResult',
     'NewsResult',
@@ -39,6 +50,9 @@ __all__ = [
     'ReportInput',
     'ReportOutput',
     'ReportResponse',
+    'RoadmapStep',
+    'ScoreItem',
+    'ScoreSummary',
     'ScientificAgentOutput',
     'ScientificResult',
     'SectionDraft',

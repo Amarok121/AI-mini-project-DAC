@@ -3,14 +3,13 @@ from typing import Literal
 from pydantic import BaseModel
 
 from .agent_result import (
-    CitationMetadataItem,
     CrossValidationResult,
     IndustrialResult,
     RegulatoryResult,
-    ReportOutput,
     ScientificResult,
 )
 from .claim import Claim
+from .report import ChartData, CitationMeta, ReportOutput
 
 
 class VerificationRequest(BaseModel):
@@ -25,7 +24,8 @@ class VerificationResponse(BaseModel):
     industrial: IndustrialResult
     regulatory: RegulatoryResult
     cross_validation: CrossValidationResult
-    citation_metadata: list[CitationMetadataItem] = []
+    citation_metadata: list[CitationMeta] = []
+    chart_data: ChartData | None = None
     pdf_path: str | None = None
 
 

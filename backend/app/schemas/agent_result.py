@@ -3,24 +3,12 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 from .claim import Claim, ClaimJudgement
+from .source import SourceItem
 
 
 AgentStatus = Literal['success', 'error']
 ConfidenceLevel = Literal['HIGH', 'MED', 'LOW']
-SourceType = Literal['논문', '뉴스', '특허', '법규', '내부문서']
 JudgementVerdict = Literal['지지', '반박', '불확실']
-
-
-class SourceItem(BaseModel):
-    ref_id: str = ''
-    title: str = ''
-    authors: list[str] = []
-    year: int = 0
-    source_type: SourceType = '논문'
-    url: str = ''
-    publisher: str = ''
-    snippet: str = ''
-    apa_citation: str = ''
 
 
 class AgentResultBase(BaseModel):
@@ -127,41 +115,6 @@ class ClaimVerificationResult(BaseModel):
     trl: str = 'TRL 1~3'
     mrl: str = 'MRL 1~3'
     cri: str = 'CRI 1~3'
-
-
-class SectionDraft(BaseModel):
-    section_id: str
-    title: str
-    markdown: str = ''
-    ref_ids: list[str] = []
-    has_error: bool = False
-    error: str | None = None
-
-
-class CitationMetadataItem(BaseModel):
-    ref_id: str
-    apa_citation: str = ''
-    snippet: str = ''
-    url: str = ''
-    source_type: SourceType = '논문'
-
-
-class ReportInput(BaseModel):
-    company_name: str
-    claims: list[Claim] = []
-    scientific: ScientificResult
-    industrial: IndustrialResult
-    regulatory: RegulatoryResult
-    cross_validation: CrossValidationResult
-
-
-class ReportOutput(BaseModel):
-    markdown: str = ''
-    report_markdown: str = ''
-    section_drafts: list[SectionDraft] = []
-    citation_metadata: list[CitationMetadataItem] = []
-    pdf_path: str | None = None
-    error: str | None = None
 
 
 ScientificAgentOutput = ScientificResult

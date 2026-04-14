@@ -1,11 +1,45 @@
 import logging
+from typing import Any
 
 from langchain_core.documents import Document
 
-from app.services.vector_store import _encode_texts, get_collection
+from app.core.config import settings
+from app.services.vector_store import get_collection
 
 
 logger = logging.getLogger(__name__)
+_RETRIEVER_MODEL: Any = None
+
+
+def _get_retriever_model() -> Any:
+    global _RETRIEVER_MODEL
+
+    if _RETRIEVER_MODEL is None:
+        try:
+            from FlagEmbedding import FlagModel
+        except ImportError as exc:
+            logger.exception('FlagEmbedding is not installed; retrieval will return empty results.')
+            raise RuntimeError('FlagEmbedding is not installed in this runtime.') from exc
+        logger.info('[rag_retriever] 쿼리 임베딩 모델 로드 중: %s', settings.EMBEDDING_MODEL)
+        _RETRIEVER_MODEL = FlagModel(settings.EMBEDDING_MODEL, use_fp16=True)
+        logger.info('[rag_retriever] 쿼리 임베딩 모델 로드 완료')
+
+    return _RETRIEVER_MODEL
+
+
+def _encode_query(query: str) -> list[list[float]]:
+    if not query.strip():
+        return []
+
+    model = _get_retriever_model()
+    embeddings = model.encode(
+        [query],
+        batch_size=1,
+        max_length=settings.EMBED_MAX_LENGTH,
+    )
+    if hasattr(embeddings, 'tolist'):
+        return embeddings.tolist()
+    return list(embeddings)
 
 
 async def retrieve(query: str, n_results: int = 5, where: dict | None = None) -> list[Document]:
@@ -14,7 +48,7 @@ async def retrieve(query: str, n_results: int = 5, where: dict | None = None) ->
             return []
 
         collection = get_collection()
-        embeddings = _encode_texts([query])
+        embeddings = _encode_query(query)
         response = collection.query(
             query_embeddings=embeddings,
             n_results=n_results,
