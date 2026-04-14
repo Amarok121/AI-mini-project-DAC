@@ -13,8 +13,10 @@ class Settings(BaseSettings):
     DART_API_KEY: str = ''
     DART_DOCS_DIR: str = './data/dart'
 
-    CHROMA_HOST: str = 'chroma'
+    CHROMA_HOST: str = 'localhost'
     CHROMA_PORT: int = 8000
+    CHROMA_COLLECTION: str = 'dac_docs'
+    EMBEDDING_MODEL: str = 'BAAI/bge-m3'
 
     CORS_ORIGINS: str = 'http://localhost:5173'
 
