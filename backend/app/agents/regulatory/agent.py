@@ -6,7 +6,9 @@ from typing import Any, Optional
 
 from app.core.config import settings
 from app.schemas.claim import Claim
-from app.schemas.agent_result import RegulatoryAgentOutput
+from app.schemas.agent_result import RegulatoryAgentOutput, SelectedRegulatoryDocument
+
+from app.agents.regulatory.portal_fetch import PortalDocument
 
 from app.agents.regulatory.law_extract import extract_law_candidates
 from app.agents.regulatory.portal_fetch import fetch_portal_documents
@@ -23,6 +25,18 @@ def _claims_narrative(claims: list[Claim]) -> str:
     return "\n".join(lines) if lines else ""
 
 
+def _portal_docs_to_validation(docs: list[PortalDocument]) -> list[SelectedRegulatoryDocument]:
+    return [
+        SelectedRegulatoryDocument(
+            law_name=d.law_name,
+            primary_url=d.url,
+            pdf_url=getattr(d, "pdf_url", "") or "",
+            source=d.source,
+        )
+        for d in docs
+    ]
+
+
 def _mock_output(note: Optional[str] = None) -> RegulatoryAgentOutput:
     return RegulatoryAgentOutput(
         verdict="불명확",
@@ -32,10 +46,12 @@ def _mock_output(note: Optional[str] = None) -> RegulatoryAgentOutput:
         risks=["해외 인센티브(IRA) 적용 조건 미확정"],
         requires_expert_review=True,
         source_urls=["https://www.law.go.kr"],
+        evidence_summary="(mock) 공식 원문 없이 제목·도메인만으로는 적용 여부를 확정할 수 없다.",
         error=note,
         reason=None,
         extracted_law_candidates=[],
         pipeline_notes=[],
+        documents_for_validation=[],
     )
 
 
@@ -68,10 +84,12 @@ def _fallback_from_hits_only(
         ],
         requires_expert_review=True,
         source_urls=urls,
+        evidence_summary="웹 스니펫·제목 수준의 근거만 있어 적용성은 불명확하며, 공식 법령 원문 대조가 필요하다.",
         error=None,
         reason=None,
         extracted_law_candidates=[],
         pipeline_notes=notes,
+        documents_for_validation=[],
     )
 
 
@@ -80,7 +98,9 @@ def _dict_to_output(
     law_names: list[str],
     source_urls: list[str],
     pipeline_notes: list[str],
+    portal_docs: list[PortalDocument],
 ) -> RegulatoryAgentOutput:
+    ev_sum = analysis.get("evidence_summary")
     return RegulatoryAgentOutput(
         verdict=_safe_verdict(analysis.get("verdict")),
         confidence=_safe_confidence(analysis.get("confidence")),
@@ -89,10 +109,12 @@ def _dict_to_output(
         risks=list(analysis.get("risks") or [])[:20],
         requires_expert_review=bool(analysis.get("requires_expert_review", True)),
         source_urls=source_urls[:30],
+        evidence_summary=str(ev_sum).strip() if ev_sum is not None else '',
         error=None,
         reason=(analysis.get("reason") or None),
         extracted_law_candidates=law_names,
         pipeline_notes=pipeline_notes,
+        documents_for_validation=_portal_docs_to_validation(portal_docs),
     )
 
 
@@ -151,5 +173,5 @@ async def run(claims: list[Claim]) -> RegulatoryAgentOutput:
             notes,
         )
 
-    out = _dict_to_output(analysis, law_names, source_urls, notes)
+    out = _dict_to_output(analysis, law_names, source_urls, notes, portal_docs)
     return out

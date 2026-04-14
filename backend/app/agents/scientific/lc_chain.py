@@ -10,10 +10,10 @@ from langchain_core.runnables import RunnableLambda, RunnableSequence
 
 from app.schemas.claim import Claim
 from app.schemas.agent_result import GradeDimensionScores, ScientificAgentOutput
+from app.core.config import settings
 
 from app.agents.scientific.grade_evaluator import (
     average_grade_dimensions,
-    estimate_trl_from_text,
     normalize_title,
     paper_result_from_parts,
     score_unified_paper,
@@ -21,6 +21,7 @@ from app.agents.scientific.grade_evaluator import (
 from app.agents.scientific.arxiv import search_preprints
 from app.agents.scientific.openalex import search_works
 from app.agents.scientific.semantic_scholar import search_papers
+from app.agents.scientific.paper_evidence_llm import enrich_papers_evidence_pack
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +30,39 @@ def _build_search_query(claims: list[Claim]) -> str:
     parts: list[str] = []
     for c in claims:
         parts.append(f"{c.technology} {c.claim} {c.application}")
-    return " ".join(parts).strip()[:500] or "technology review"
+    base = " ".join(parts).strip()
+    anchors = [
+        "direct air capture",
+        "DAC",
+        "carbon capture",
+        "CO2 capture",
+        "CCUS",
+        "sorbent",
+        "adsorption",
+        "탄소 포집",
+        "직접공기포집",
+    ]
+    q = " ".join([base] + anchors).strip()
+    return q[:500] or "direct air capture review"
 
 
 def _tech_keywords(claims: list[Claim]) -> list[str]:
-    base = ["dac", "direct air", "co2", "carbon", "capture", "탄소"]
+    base = [
+        "dac",
+        "direct air capture",
+        "direct air",
+        "co2",
+        "carbon",
+        "capture",
+        "ccus",
+        "sorbent",
+        "adsorption",
+        "amine",
+        "탄소",
+        "직접공기포집",
+        "공기포집",
+        "흡착",
+    ]
     for c in claims:
         for tok in c.technology.replace(",", " ").split():
             if len(tok) > 1:
@@ -74,6 +103,20 @@ def _venue_from_ss(p: dict[str, Any]) -> str:
     if isinstance(v, dict):
         return str(v.get("name") or "")
     return ""
+
+
+def _ss_open_access_pdf_url(p: dict[str, Any]) -> str:
+    oa = p.get("openAccessPdf")
+    if isinstance(oa, dict):
+        return str(oa.get("url") or "").strip()
+    return ""
+
+
+def _arxiv_pdf_url(arid: str) -> str:
+    a = (arid or "").strip()
+    if not a:
+        return ""
+    return f"https://arxiv.org/pdf/{a}.pdf"
 
 
 def _oa_primary_venue(w: dict[str, Any]) -> str:
@@ -119,6 +162,7 @@ def _merge_ss_openalex(ss: list[dict[str, Any]], oa: list[dict[str, Any]]) -> li
                 "citations": citations,
                 "doi": doi,
                 "url": str(p.get("url") or ""),
+                "pdf_url": _ss_open_access_pdf_url(p),
                 "semantic_scholar_id": str(p.get("paperId") or ""),
                 "openalex_id": str(oa_w.get("id") or "") if oa_w else "",
                 "arxiv_id": "",
@@ -139,6 +183,7 @@ def _merge_ss_openalex(ss: list[dict[str, Any]], oa: list[dict[str, Any]]) -> li
                 "citations": int(w.get("cited_by_count") or 0),
                 "doi": str(w.get("doi") or "").replace("https://doi.org/", ""),
                 "url": str(w.get("id") or ""),
+                "pdf_url": "",
                 "semantic_scholar_id": "",
                 "openalex_id": str(w.get("id") or ""),
                 "arxiv_id": "",
@@ -167,8 +212,11 @@ def _merge_with_arxiv(
             ap_abs = str(ap.get("abstract") or "").strip()
             if len(ap_abs) > len(str(m.get("abstract") or "")):
                 m["abstract"] = ap_abs
-            if ap.get("arxiv_id") and not str(m.get("arxiv_id") or "").strip():
-                m["arxiv_id"] = str(ap["arxiv_id"])
+            aid = str(ap.get("arxiv_id") or "").strip()
+            if aid and not str(m.get("arxiv_id") or "").strip():
+                m["arxiv_id"] = aid
+            if aid and not str(m.get("pdf_url") or "").strip():
+                m["pdf_url"] = _arxiv_pdf_url(aid)
             if ap.get("doi") and not str(m.get("doi") or "").strip():
                 m["doi"] = str(ap["doi"])
             jr = str(ap.get("journal_ref") or "").strip()
@@ -180,6 +228,7 @@ def _merge_with_arxiv(
                 m["url"] = str(ap["abs_url"])
             continue
         venue = str(ap.get("journal_ref") or "").strip() or "arXiv (preprint)"
+        aid_only = str(ap.get("arxiv_id") or "")
         new_m: dict[str, Any] = {
             "title": str(ap.get("title") or ""),
             "abstract": str(ap.get("abstract") or ""),
@@ -188,9 +237,10 @@ def _merge_with_arxiv(
             "citations": 0,
             "doi": str(ap.get("doi") or ""),
             "url": str(ap.get("abs_url") or ""),
+            "pdf_url": _arxiv_pdf_url(aid_only),
             "semantic_scholar_id": "",
             "openalex_id": "",
-            "arxiv_id": str(ap.get("arxiv_id") or ""),
+            "arxiv_id": aid_only,
             "authors": list(ap.get("authors") or []),
         }
         by_key[key] = new_m
@@ -210,22 +260,32 @@ def _prepare_inputs(state: dict[str, Any]) -> dict[str, Any]:
 async def _fetch_sources(state: dict[str, Any]) -> dict[str, Any]:
     q = str(state["query"])
     ss_oa_error: str | None = None
+    ss_list: list[dict[str, Any]] = []
+    oa_list: list[dict[str, Any]] = []
+
+    # OpenAlex는 키 없이도 안정적이므로 항상 시도 (SS 실패가 OA까지 막지 않게 분리)
     try:
-        ss_list, oa_list = await asyncio.gather(
-            asyncio.to_thread(lambda: search_papers(q, limit=10)),
-            asyncio.to_thread(lambda: search_works(q, per_page=10)),
-        )
+        oa_list = await asyncio.to_thread(lambda: search_works(q, per_page=12))
     except Exception as exc:  # noqa: BLE001
-        logger.exception("scientific SS/OA search failed")
-        ss_oa_error = str(exc)
-        ss_list, oa_list = [], []
+        logger.warning("scientific OpenAlex search failed: %s", exc)
+        oa_list = []
+
+    # Semantic Scholar는 키가 없으면 레이트리밋이 잦아 기본 스킵 (있으면만 시도)
+    if (settings.SEMANTIC_SCHOLAR_API_KEY or "").strip():
+        try:
+            ss_list = await asyncio.to_thread(lambda: search_papers(q, limit=12))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("scientific Semantic Scholar search failed: %s", exc)
+            ss_list = []
+    else:
+        ss_list = []
 
     arx_list: list[dict[str, Any]] = []
-    if not ss_oa_error:
-        try:
-            arx_list = await asyncio.to_thread(lambda: search_preprints(q, limit=10))
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("arXiv search failed: %s", exc)
+    try:
+        arx_list = await asyncio.to_thread(lambda: search_preprints(q, limit=12))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("arXiv search failed: %s", exc)
+        arx_list = []
 
     return {
         **state,
@@ -236,9 +296,35 @@ async def _fetch_sources(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentOutput:
+def _keyword_hits(text: str, kws: list[str]) -> int:
+    blob = (text or "").lower()
+    hits = 0
+    for k in kws:
+        kk = (k or "").lower().strip()
+        if not kk:
+            continue
+        if kk in blob:
+            hits += 1
+    return hits
+
+
+def _filter_relevant_unified(unified: list[dict[str, Any]], kws: list[str]) -> list[dict[str, Any]]:
+    """초록/제목에 기술 키워드가 거의 없는 문서를 제거해 주제 적합도 향상."""
+    scored: list[tuple[dict[str, Any], int]] = []
+    for u in unified:
+        title = str(u.get("title") or "")
+        abstract = str(u.get("abstract") or "")
+        scored.append((u, _keyword_hits(f"{title}\n{abstract}", kws)))
+    scored.sort(key=lambda x: x[1], reverse=True)
+    if scored and scored[0][1] <= 0:
+        return unified
+    return [u for u, h in scored if h >= 1][:25]
+
+
+async def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentOutput:
     q = str(state["query"])
     kws = cast(list[str], state["kws"])
+    claims = cast(list[Claim], state["claims"])
     err = state.get("ss_oa_error")
 
     if err:
@@ -260,6 +346,7 @@ def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentOutput:
         )
 
     unified = _merge_with_arxiv(_merge_ss_openalex(ss_list, oa_list), arx_list)
+    unified = _filter_relevant_unified(unified, kws)
     sources = ["semantic_scholar", "openalex", "arxiv"]
 
     scored: list[tuple[dict[str, Any], float, GradeDimensionScores, str]] = []
@@ -287,8 +374,11 @@ def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentOutput:
                 oa_id=str(u.get("openalex_id") or ""),
                 doi=str(u.get("doi") or ""),
                 arxiv_id=str(u.get("arxiv_id") or ""),
+                pdf_url=str(u.get("pdf_url") or ""),
             )
         )
+
+    papers = await enrich_papers_evidence_pack(papers, claims)
 
     avg_dims = average_grade_dimensions([r[2] for r in top[:3]]) if top else GradeDimensionScores()
     mean_score = sum(r[1] for r in top[:3]) / min(3, len(top)) if top else 0.0
@@ -299,9 +389,6 @@ def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentOutput:
     else:
         overall = "LOW"
 
-    abstract_blob = " ".join(str(u.get("abstract") or "") for u, _, _, _ in top[:3])
-    trl = estimate_trl_from_text(abstract_blob + " " + q)
-
     summary = (
         f"Semantic Scholar·OpenAlex·arXiv 기준 상위 {len(papers)}편을 선별했습니다. "
         f"평균 가중 GRADE 스켈레톤 점수는 상위 3편 기준 약 {mean_score:.2f}이며, "
@@ -311,7 +398,6 @@ def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentOutput:
     return ScientificAgentOutput(
         papers=papers,
         overall_grade=overall,  # type: ignore[arg-type]
-        trl_estimate=trl,
         summary=summary,
         error=None,
         grade_breakdown=avg_dims,

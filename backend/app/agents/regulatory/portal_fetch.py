@@ -33,6 +33,7 @@ class PortalDocument:
     source: str
     text: str
     url: str = ""
+    pdf_url: str = ""
 
 
 def _has_korean(s: str) -> bool:
@@ -165,7 +166,7 @@ def _fetch_law_go_kr_sync(keyword: str) -> tuple[str, str]:
     return text, "https://www.law.go.kr"
 
 
-def _fetch_federal_register_sync(keyword: str) -> tuple[str, str]:
+def _fetch_federal_register_sync(keyword: str) -> tuple[str, str, str]:
     url = "https://www.federalregister.gov/api/v1/documents.json"
     params = {"per_page": 5, "order": "relevance", "conditions[term]": keyword[:256]}
     try:
@@ -175,21 +176,25 @@ def _fetch_federal_register_sync(keyword: str) -> tuple[str, str]:
             data = r.json()
     except (httpx.HTTPError, json.JSONDecodeError) as e:
         logger.info("Federal Register fetch failed for %s: %s", keyword, e)
-        return "", ""
+        return "", "", ""
 
     results = data.get("results") or []
     chunks: list[str] = []
     first_url = ""
+    first_pdf = ""
     for doc in results[:5]:
         if not isinstance(doc, dict):
             continue
         title = doc.get("title") or ""
         abstract = doc.get("abstract") or ""
-        html_url = doc.get("html_url") or doc.get("pdf_url") or ""
+        pdf_u = (doc.get("pdf_url") or "").strip()
+        html_url = doc.get("html_url") or pdf_u or ""
         if not first_url and html_url:
             first_url = html_url
-        chunks.append(f"### {title}\n{abstract}\nURL: {html_url}\n")
-    return "\n".join(chunks)[:16000], first_url
+        if not first_pdf and pdf_u:
+            first_pdf = pdf_u
+        chunks.append(f"### {title}\n{abstract}\nURL: {html_url}\nPDF: {pdf_u}\n")
+    return "\n".join(chunks)[:16000], first_url, first_pdf
 
 
 def _eu_from_tavily_hits(law_name: str, hits: list[TavilyHit]) -> tuple[str, str]:
@@ -241,7 +246,7 @@ def fetch_portal_documents_sync(
             )
             notes.append(f"[KR] '{raw_name}': law.go.kr 검색 요약 수집")
         elif region == "US":
-            text, url = _fetch_federal_register_sync(raw_name)
+            text, url, pdf_fr = _fetch_federal_register_sync(raw_name)
             if not text:
                 notes.append(f"[US] '{raw_name}': Federal Register 결과 없음")
                 continue
@@ -251,6 +256,7 @@ def fetch_portal_documents_sync(
                     source="federalregister.gov",
                     text=text,
                     url=url,
+                    pdf_url=pdf_fr,
                 )
             )
             notes.append(f"[US] '{raw_name}': Federal Register 요약 수집")
@@ -258,12 +264,16 @@ def fetch_portal_documents_sync(
             eu_text, eu_url, celex = try_fetch_eu_from_sources(raw_name, tavily_hits)
             if eu_text:
                 label = f"eur-lex (CELEX {celex})" if celex else "eur-lex"
+                pdf_eu = ""
+                if celex:
+                    pdf_eu = f"https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:{celex}"
                 docs.append(
                     PortalDocument(
                         law_name=raw_name,
                         source=label,
                         text=eu_text,
                         url=eu_url or "",
+                        pdf_url=pdf_eu,
                     )
                 )
                 notes.append(f"[EU] '{raw_name}': EUR-Lex 본문 fetch ({celex or 'CELEX 미상'})")
