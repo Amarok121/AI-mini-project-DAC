@@ -68,9 +68,19 @@ class CrossValidatorChain:
            - 논문의 '한계점(limitations)'이나 '특수 조건'이 뉴스에서 의도적으로 생략되었는지 확인하십시오.
            - 논문에서 입증되지 않은 효과를 뉴스가 논문의 권위를 빌려 과장하는지 확인하십시오.
 
-        결과는 아래 형식을 가진 JSON 오브젝트로 응답하십시오.
+        결과는 아래 형식을 가진 JSON 오브젝트로 응답하십시오. (PerformanceGapResult 필드명을 정확히 지키십시오)
         {{
-            "performance_gaps": [], // PerformanceGapResult 구조 (수치 중심)
+            "performance_gaps": [
+                {{
+                    "metric": "수치 명칭 (예: 포집 비용)",
+                    "sci_val": 0.0, // 논문 수치 (숫자만)
+                    "ind_val": 0.0, // 뉴스 수치 (숫자만)
+                    "hype_index": 0.0, // ind_val / sci_val (또는 그 반대, 격차 비율)
+                    "status": "CRITICAL_MISREPRESENTATION | Hype Warning | Normal",
+                    "description": "격차에 대한 설명",
+                    "analyst_note": "감사관의 기술적 의견"
+                }}
+            ],
             "narrative_conflicts": [] // 서술적 모순/왜곡에 대한 구체적인 판단 근거 (문자열 리스트)
         }}
         """
@@ -143,8 +153,6 @@ class CrossValidatorChain:
                     verdict=verdict,
                     flags=['HYPE_DETECTED'] if critical_hype else (['REGULATORY_RISK'] if high_reg_risk else [])
                 )
-            )
-
             )
 
         return CrossValidatorOutput(
