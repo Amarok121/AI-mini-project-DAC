@@ -64,6 +64,7 @@ class PaperResult(BaseModel):
     doi: str = Field(default='', exclude=True)
     summary: str = ''
     excerpt: str = ''
+    pdf_evidence: str = Field(default='', exclude=True)
     key_point: str = ''
     conditions: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
