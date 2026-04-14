@@ -8,7 +8,10 @@ async def test_verification_survives_agent_failure(monkeypatch):
     async def raise_error(_claims):
         raise RuntimeError('forced scientific failure')
 
-    monkeypatch.setattr('app.pipeline.orchestrator.run_scientific', raise_error)
+    monkeypatch.setattr(
+        'app.pipeline.verification_graph.run_scientific',
+        raise_error,
+    )
 
     req = VerificationRequest(input_type='text', content='테스트 텍스트')
     result = await run_verification(req)

@@ -22,6 +22,23 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
+`run_verification()`는 LangGraph 기반 그래프를 직접 실행합니다.
+따라서 `requirements.txt`의 `langgraph`와 `langchain` 설치가 필수입니다.
+
+## LangGraph Flow
+1. `preprocess`
+2. `extract_claims`
+3. `validate_agents`
+4. `cross_validate`
+5. `report`
+
+각 노드의 역할은 `backend/app/pipeline/verification_graph.py`에 주석으로 정리해두었습니다.
+
+## LangChain Tools
+팀 명세(`IMPLEMENTATION_NOTES.md`)에서는 `backend/app/tools/` 아래에 LangChain Tool을 두는 것을 전제로 합니다. 현재 브랜치에는 해당 디렉터리가 없을 수 있으며, 산업 측 검색·특허 로직은 `backend/app/agents/industrial/`(`news_agent.py`, `patent_agent.py` 등)에서 다룹니다.
+
+LangChain(`langchain-core` 등)과 LangGraph는 `requirements.txt`에 포함되어야 합니다.
+
 ## Run tests
 ```bash
 cd backend
@@ -34,6 +51,6 @@ docker-compose up --build
 ```
 
 ## Notes
-- 현재 외부 API 연동은 TODO + Mock 출력입니다.
-- API는 단순화되어 `POST /verify` 결과 즉시 반환 방식입니다.
-- 규제 에이전트: **Tavily** 탐색은 구현됨 → 정부 포털 원문 fetch·LLM 적용성 해석은 TODO (`backend/app/agents/regulatory/`).
+- `POST /verify`는 `LangGraph` 그래프(`backend/app/pipeline/verification_graph.py`)로 실행되어 결과를 즉시 반환합니다. 공유 상태 스키마는 `backend/app/pipeline/state.py`입니다.
+- Scientific / Industrial / Regulatory 에이전트 구현은 `backend/app/agents/` 하위이며, 파이프라인과 함께 자주 수정되는 영역입니다.
+- 외부 API·키가 없으면 일부 에이전트는 Mock 또는 축약 동작을 할 수 있습니다.
