@@ -22,6 +22,9 @@ from app.agents.scientific.arxiv import search_preprints
 from app.agents.scientific.openalex import search_works
 from app.agents.scientific.semantic_scholar import search_papers
 from app.agents.scientific.paper_evidence_llm import enrich_papers_evidence_pack
+from app.agents.scientific.llm_grade_judge import judge_papers_llm
+from app.agents.scientific.pdf_evidence import extract_pdf_evidence_snippet
+from app.agents.scientific.query_llm import build_scientific_query_and_keywords_llm
 
 logger = logging.getLogger(__name__)
 
@@ -250,12 +253,19 @@ def _merge_with_arxiv(
     return merged
 
 
-def _prepare_inputs(state: dict[str, Any]) -> dict[str, Any]:
+async def _prepare_inputs(state: dict[str, Any]) -> dict[str, Any]:
     claims = cast(list[Claim], state["claims"])
+    fallback_query = _build_search_query(claims)
+    fallback_kws = _tech_keywords(claims)
+    query, kws = await build_scientific_query_and_keywords_llm(
+        claims,
+        fallback_query=fallback_query,
+        fallback_kws=fallback_kws,
+    )
     return {
         **state,
-        "query": _build_search_query(claims),
-        "kws": _tech_keywords(claims),
+        "query": query,
+        "kws": kws,
     }
 
 
@@ -382,19 +392,32 @@ async def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentO
 
     papers = await enrich_papers_evidence_pack(papers, claims)
 
+    # Local PDF parsing: extract a small claim-relevant snippet (no LLM).
+    claim_text = " ".join([c.claim for c in claims if (c.claim or "").strip()])[:800]
+    if claim_text:
+        async def _one(p):
+            snip = await extract_pdf_evidence_snippet(
+                pdf_url=p.pdf_url,
+                arxiv_id=p.arxiv_id,
+                claim_text=claim_text,
+            )
+            if not snip:
+                return p
+            # Keep excerpt for abstract-based evidence-pack; store PDF snippet separately (exclude from API).
+            return p.model_copy(update={"pdf_evidence": snip})
+
+        papers = await asyncio.gather(*[_one(p) for p in papers])
+
+    # Final grading is LLM-based (rules + evidence). Heuristic dimensions remain for debugging only.
+    judged_papers, overall, judge_note = await judge_papers_llm(papers, claims)
+    papers = judged_papers
+
     avg_dims = average_grade_dimensions([r[2] for r in top[:3]]) if top else GradeDimensionScores()
     mean_score = sum(r[1] for r in top[:3]) / min(3, len(top)) if top else 0.0
-    if mean_score >= 0.75:
-        overall = "HIGH"
-    elif mean_score >= 0.5:
-        overall = "MED"
-    else:
-        overall = "LOW"
-
     summary = (
-        f"Semantic Scholar·OpenAlex·arXiv 기준 상위 {len(papers)}편을 선별했습니다. "
-        f"평균 가중 GRADE 스켈레톤 점수는 상위 3편 기준 약 {mean_score:.2f}이며, "
-        "자동 휴리스틱이므로 임상·정책 GRADE와 동일하지 않습니다."
+        f"상위 {len(papers)}편을 선별한 뒤, LLM 규칙 기반으로 근거 강도를 판정했습니다(근거 인용 포함). "
+        f"(참고: 기존 휴리스틱 평균 점수(상위3)≈{mean_score:.2f}) "
+        + (f"\n판정 메모: {judge_note}" if judge_note else "")
     )
 
     return ScientificAgentOutput(
