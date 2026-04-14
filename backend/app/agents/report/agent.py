@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import date
 import logging
+import re
 
 from openai import AsyncOpenAI
 
@@ -123,6 +124,36 @@ def _safe_getattr(obj: object, field_name: str, default=None):
         return getattr(obj, field_name, default)
     except Exception:
         return default
+
+
+def _is_failure_news_item(item: object) -> bool:
+    title = str(_safe_getattr(item, 'title', '') or '').lower()
+    publisher = str(_safe_getattr(item, 'publisher', '') or '').lower()
+    summary = str(_safe_getattr(item, 'summary', '') or '').lower()
+    reason = str(_safe_getattr(item, 'reason', '') or '').lower()
+    text = ' '.join([title, publisher, summary, reason])
+    return (
+        '네이버 뉴스 검색 실패' in text
+        or 'fallback' in text
+        or '본문 확보 가능한 뉴스 없음' in text
+    )
+
+
+def _is_failure_patent_item(item: object) -> bool:
+    title = str(_safe_getattr(item, 'title', '') or '').lower()
+    applicant = str(_safe_getattr(item, 'applicant', '') or '').lower()
+    summary = str(_safe_getattr(item, 'summary', '') or '').lower()
+    reason = str(_safe_getattr(item, 'reason', '') or '').lower()
+    text = ' '.join([title, applicant, summary, reason])
+    return 'kipris 검색 실패' in text or 'fallback' in text
+
+
+def _filter_real_news_items(items: list[object]) -> list[object]:
+    return [item for item in items if not _is_failure_news_item(item)]
+
+
+def _filter_real_patent_items(items: list[object]) -> list[object]:
+    return [item for item in items if not _is_failure_patent_item(item)]
 
 
 def _clip_prompt_text(value: str | None, max_chars: int | None = None) -> str | None:
@@ -267,6 +298,27 @@ def _build_apa_citation(source: SourceItem) -> str:
     return f'{citation} {url}'.strip()
 
 
+def _is_fallback_source(source: SourceItem) -> bool:
+    text_blob = ' '.join(
+        [
+            source.title or '',
+            source.publisher or '',
+            source.url or '',
+            source.raw_text or '',
+            source.source_type or '',
+        ]
+    ).lower()
+    fallback_markers = [
+        'mock',
+        '폴백',
+        'fallback',
+        'regulation-search',
+        '규제 근거 링크',
+        'snippet_only',
+    ]
+    return any(marker in text_blob for marker in fallback_markers)
+
+
 def _normalize_sources(report_input: ReportInput) -> list[SourceItem]:
     normalized: list[SourceItem] = []
     seen: set[str] = set()
@@ -278,6 +330,8 @@ def _normalize_sources(report_input: ReportInput) -> list[SourceItem]:
         report_input.cross_validation,
     ]:
         for source in getattr(result, 'sources', []):
+            if _is_fallback_source(source):
+                continue
             key = f'{source.title}|{source.url}|{source.raw_text}'
             if key in seen:
                 continue
@@ -331,6 +385,57 @@ def _format_sources_block(sources: list[SourceItem]) -> str:
     return '\n'.join(_format_source_line(source) for source in sources)
 
 
+def _build_company_context_block(context: str, max_chars: int = 2500) -> str:
+    clipped = _clip_prompt_text(context, max_chars=max_chars)
+    if not clipped:
+        return '- 제공된 회사/RAG 컨텍스트 없음'
+    return clipped
+
+
+def _build_source_grounding_memo(
+    sources: list[SourceItem],
+    *,
+    max_items: int = 5,
+    max_chars: int = 400,
+) -> str:
+    if not sources:
+        return '- 직접 활용 가능한 구조화 출처 없음'
+
+    lines: list[str] = []
+    for source in sources[:max_items]:
+        title = source.title or '제목 미상'
+        snippet = _clip_prompt_text(source.raw_text, max_chars=max_chars) or '스니펫 없음'
+        publisher = source.publisher or '발행처 미상'
+        year = str(source.year) if source.year is not None else '연도 미상'
+        ref_id = source.ref_id or '-'
+        lines.append(
+            f"- [^{ref_id}] {title} | {publisher} | {year} | 핵심 근거: {snippet}"
+        )
+    return '\n'.join(lines)
+
+
+def _build_claims_grounding_memo(claims: list[Claim]) -> str:
+    if not claims:
+        return '- 구조화된 주장 없음'
+    lines: list[str] = []
+    for idx, claim in enumerate(claims, start=1):
+        lines.append(
+            f"- 주장 {idx}: 기술={claim.technology or '-'} | 주장={_claim_label(claim)} | "
+            f"적용={claim.application or '-'} | 상태={claim.status or '-'}"
+        )
+    return '\n'.join(lines)
+
+
+def _section_writing_requirements(section_name: str) -> str:
+    return (
+        f"- '{section_name}' 섹션은 입력 데이터와 RAG 문맥을 종합해 서술형 보고서로 재구성한다.\n"
+        "- 제공된 텍스트를 그대로 길게 복사하지 말고, 핵심 사실을 선별해 문맥화한다.\n"
+        "- 단순 나열보다 '무엇이 확인되었는지 → 우리 회사에 어떤 의미인지 → 어떤 한계가 있는지' 흐름으로 쓴다.\n"
+        "- 각 단락에는 가능한 한 1개 이상의 인용 번호를 붙인다.\n"
+        "- 직접 근거가 부족하면 그 사실을 명시하고 '(추정)'으로 한계를 표시한다."
+    )
+
+
 def _build_claims_table(claims: list[Claim]) -> str:
     rows = ['| claim_id | 주장 | 카테고리 |', '| --- | --- | --- |']
     for claim in claims:
@@ -344,11 +449,14 @@ def _build_metric_table(report_input: ReportInput) -> str:
     scientific = report_input.scientific
     industrial = report_input.industrial
     regulatory = report_input.regulatory
+    industrial_rationale = industrial.mrl_rationale or industrial.summary or '-'
+    if not _filter_real_news_items(getattr(industrial, 'news', []) or []) and not _filter_real_patent_items(getattr(industrial, 'patents', []) or []):
+        industrial_rationale = '실제 뉴스/특허 근거가 부족하여 산업화 신호 평가는 보수적으로 유지했습니다.'
     rows = [
         '| 지표 | 현재 수준 | 범위 | 판단 근거 요약 |',
         '| --- | --- | --- | --- |',
         f"| TRL | {scientific.trl_estimate or '-'} | 1~9 | {scientific.trl_rationale or scientific.summary or '-'} |",
-        f"| MRL | {industrial.mrl_estimate or '-'} | 1~10 | {industrial.mrl_rationale or industrial.summary or '-'} |",
+        f"| MRL | {industrial.mrl_estimate or '-'} | 1~10 | {industrial_rationale} |",
         f"| CRI | {regulatory.cri_estimate or '-'} | 1~6 | {regulatory.cri_rationale or regulatory.summary or '-'} |",
     ]
     return '\n'.join(rows)
@@ -365,6 +473,37 @@ def _build_claim_judgement_table(judgements: list[ClaimJudgement], claims: list[
             f"{judgement.overall_confidence or '-'} | {judgement.rationale_summary or '-'} |"
         )
     return '\n'.join(rows)
+
+
+def _polish_section6_markdown(markdown: str) -> str:
+    if not markdown.strip():
+        return markdown
+
+    lines = markdown.splitlines()
+    polished: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+
+        if stripped.startswith('- **') and '**:' in stripped:
+            content = stripped[2:]
+            label, value = content.split('**:', 1)
+            label = label.strip('* ')
+            value = value.strip()
+            polished.append(f'**{label}**')
+            if value:
+                polished.append(value)
+            polished.append('')
+            continue
+
+        if stripped.startswith('- ') and not stripped.startswith('- ['):
+            polished.append(line.replace('- ', '• ', 1))
+            continue
+
+        polished.append(line)
+
+    text = '\n'.join(polished)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 
 def _fallback_section(section_id: str, error_message: str) -> SectionDraft:
@@ -466,13 +605,24 @@ def _build_section1_prompts(
 검증 대상 주장 목록 표:
 {claims_table}
 
+구조화된 주장 메모:
+{_build_claims_grounding_memo(report_input.claims)}
+
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context, max_chars=3000)}
+
 사용 가능한 출처 상세:
 {_format_sources_block(all_sources)}
+
+핵심 출처 메모:
+{_build_source_grounding_memo(all_sources, max_items=6, max_chars=320)}
 
 작성 요구:
 - 회사 소개와 본 검증의 목적을 짧게 정리한다.
 - 검증 대상 주장 목록을 표를 활용해 설명한다.
+- 회사 일반 현황 컨텍스트가 있으면 반드시 SK이노베이션의 사업/기술 문맥과 이번 검증 주장을 연결해 설명한다.
 - 회사 일반 현황 컨텍스트가 없으면 그 한계를 드러내되 보고서 톤은 유지한다.
+{_section_writing_requirements('검증 개요')}
 """
         return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
     except Exception as exc:
@@ -482,6 +632,7 @@ def _build_section1_prompts(
 def _build_section2_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
+    company_context: str = '',
 ) -> tuple[str, str, list[int]]:
     try:
         scientific = report_input.scientific
@@ -506,13 +657,21 @@ TRL 판단 근거: {scientific.trl_rationale or '-'}
 논문 근거 텍스트:
 {evidence_block}
 
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context, max_chars=1800)}
+
 출처:
 {_format_sources_block(section_sources)}
+
+핵심 출처 메모:
+{_build_source_grounding_memo(section_sources, max_items=5, max_chars=320)}
 
 작성 요구:
 - 과학적 근거 수준을 요약한다.
 - TRL 현재 추정 수준과 그 판단 근거를 분리해 설명한다.
 - cross validation의 과학 신뢰도 판정을 함께 서술한다.
+- 과학 근거가 SK이노베이션의 기술 도입 판단에 어떤 의미가 있는지 한 문단으로 연결한다.
+{_section_writing_requirements('과학적 근거 분석')}
 """
         if len(user_prompt) > 50000:
             evidence_block = _build_scientific_evidence_block(
@@ -532,6 +691,9 @@ TRL 판단 근거: {scientific.trl_rationale or '-'}
 논문 근거 텍스트:
 {evidence_block}
 
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context, max_chars=1200)}
+
 출처:
 {_format_sources_block(section_sources)}
 
@@ -539,6 +701,8 @@ TRL 판단 근거: {scientific.trl_rationale or '-'}
 - 과학적 근거 수준을 요약한다.
 - TRL 현재 추정 수준과 그 판단 근거를 분리해 설명한다.
 - cross validation의 과학 신뢰도 판정을 함께 서술한다.
+- 과학 근거가 SK이노베이션의 기술 도입 판단에 어떤 의미가 있는지 한 문단으로 연결한다.
+{_section_writing_requirements('과학적 근거 분석')}
 """
         return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
     except Exception as exc:
@@ -548,12 +712,15 @@ TRL 판단 근거: {scientific.trl_rationale or '-'}
 def _build_section3_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
+    company_context: str = '',
 ) -> tuple[str, str, list[int]]:
     try:
         industrial = report_input.industrial
         system_prompt = _build_section_system_prompt('산업화 현황 분석 섹션 작성', section_sources)
-        news_items = _safe_getattr(industrial, 'news', []) or []
-        patent_items = _safe_getattr(industrial, 'patents', []) or []
+        raw_news_items = _safe_getattr(industrial, 'news', []) or []
+        raw_patent_items = _safe_getattr(industrial, 'patents', []) or []
+        news_items = _filter_real_news_items(raw_news_items)
+        patent_items = _filter_real_patent_items(raw_patent_items)
         news_list = chr(10).join(
             [
                 f"- {(_safe_getattr(news, 'title', '제목 미상'))} / "
@@ -574,8 +741,11 @@ def _build_section3_prompts(
         ) or '- 특허 정보 없음'
         news_evidence = _build_industrial_news_block(news_items)
         patent_evidence = _build_industrial_patent_block(patent_items)
+        industrial_summary = industrial.summary or '-'
+        if not news_items and not patent_items:
+            industrial_summary = '실제 뉴스/특허 근거가 부족하여 산업화 현황을 보수적으로 평가했습니다.'
         user_prompt = f"""섹션 제목은 '### 산업화 현황 분석'으로 시작하세요.
-Industrial 요약: {industrial.summary or '-'}
+Industrial 요약: {industrial_summary}
 MRL 추정값: {industrial.mrl_estimate or '-'}
 MRL 판단 근거: {industrial.mrl_rationale or '-'}
 산업 신뢰도 판정: {report_input.cross_validation.industrial_confidence or '-'}
@@ -592,19 +762,27 @@ MRL 판단 근거: {industrial.mrl_rationale or '-'}
 특허 근거 텍스트:
 {patent_evidence}
 
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context, max_chars=2200)}
+
 출처:
 {_format_sources_block(section_sources)}
+
+핵심 출처 메모:
+{_build_source_grounding_memo(section_sources, max_items=5, max_chars=320)}
 
 작성 요구:
 - 산업화 및 상용화 시그널을 요약한다.
 - MRL 현재 추정 수준과 그 판단 근거를 설명한다.
 - cross validation의 산업 신뢰도 판정을 반영한다.
+- 산업화 신호를 SK이노베이션의 사업 포트폴리오/설비/R&D 맥락과 연결해 해석한다.
+{_section_writing_requirements('산업화 현황 분석')}
 """
         if len(user_prompt) > 50000:
             news_evidence = _build_industrial_news_block(news_items, max_chars=500)
             patent_evidence = _build_industrial_patent_block(patent_items, max_chars=500)
             user_prompt = f"""섹션 제목은 '### 산업화 현황 분석'으로 시작하세요.
-Industrial 요약: {industrial.summary or '-'}
+Industrial 요약: {industrial_summary}
 MRL 추정값: {industrial.mrl_estimate or '-'}
 MRL 판단 근거: {industrial.mrl_rationale or '-'}
 산업 신뢰도 판정: {report_input.cross_validation.industrial_confidence or '-'}
@@ -621,6 +799,9 @@ MRL 판단 근거: {industrial.mrl_rationale or '-'}
 특허 근거 텍스트:
 {patent_evidence}
 
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context, max_chars=1200)}
+
 출처:
 {_format_sources_block(section_sources)}
 
@@ -628,6 +809,8 @@ MRL 판단 근거: {industrial.mrl_rationale or '-'}
 - 산업화 및 상용화 시그널을 요약한다.
 - MRL 현재 추정 수준과 그 판단 근거를 설명한다.
 - cross validation의 산업 신뢰도 판정을 반영한다.
+- 산업화 신호를 SK이노베이션의 사업 포트폴리오/설비/R&D 맥락과 연결해 해석한다.
+{_section_writing_requirements('산업화 현황 분석')}
 """
         return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
     except Exception as exc:
@@ -637,6 +820,7 @@ MRL 판단 근거: {industrial.mrl_rationale or '-'}
 def _build_section4_prompts(
     report_input: ReportInput,
     section_sources: list[SourceItem],
+    company_context: str = '',
 ) -> tuple[str, str, list[int]]:
     try:
         regulatory = report_input.regulatory
@@ -659,13 +843,21 @@ CRI 판단 근거: {regulatory.cri_rationale or '-'}
 규제 근거 텍스트:
 {evidence_block}
 
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context, max_chars=1800)}
+
 출처:
 {_format_sources_block(section_sources)}
+
+핵심 출처 메모:
+{_build_source_grounding_memo(section_sources, max_items=5, max_chars=320)}
 
 작성 요구:
 - 규제 적용성, 인센티브, 리스크를 구조적으로 정리한다.
 - CRI 현재 추정 수준과 그 판단 근거를 설명한다.
 - cross validation의 규제 신뢰도 판정을 반영한다.
+- 규제 리스크가 SK이노베이션의 도입/투자/실증 의사결정에 어떤 제약을 주는지 연결한다.
+{_section_writing_requirements('규제 및 법률 검토')}
 """
         if len(user_prompt) > 50000:
             evidence_block = _build_regulatory_evidence_block(regulatory_evidences, max_chars=500)
@@ -685,6 +877,9 @@ CRI 판단 근거: {regulatory.cri_rationale or '-'}
 규제 근거 텍스트:
 {evidence_block}
 
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context, max_chars=1200)}
+
 출처:
 {_format_sources_block(section_sources)}
 
@@ -692,6 +887,8 @@ CRI 판단 근거: {regulatory.cri_rationale or '-'}
 - 규제 적용성, 인센티브, 리스크를 구조적으로 정리한다.
 - CRI 현재 추정 수준과 그 판단 근거를 설명한다.
 - cross validation의 규제 신뢰도 판정을 반영한다.
+- 규제 리스크가 SK이노베이션의 도입/투자/실증 의사결정에 어떤 제약을 주는지 연결한다.
+{_section_writing_requirements('규제 및 법률 검토')}
 """
         return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
     except Exception as exc:
@@ -739,6 +936,8 @@ def _build_section5_prompts(
 - 위 두 표를 포함한다.
 - 표 아래에 각 지표별 해설을 서술한다.
 - 주장별 판정 결과를 종합해 기술도입 가능성을 평가한다.
+- 단순 요약이 아니라 과학/산업/규제 결과를 엮어 의사결정 관점의 종합 평가로 쓴다.
+{_section_writing_requirements('최종 평가표 및 해설')}
 """
         return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
     except Exception as exc:
@@ -770,6 +969,12 @@ CRI: {report_input.regulatory.cri_estimate or '-'}
 출처:
 {_format_sources_block(all_sources)}
 
+회사/RAG 컨텍스트:
+{_build_company_context_block(company_context_section6, max_chars=3000)}
+
+핵심 출처 메모:
+{_build_source_grounding_memo(all_sources, max_items=6, max_chars=320)}
+
 작성 요구:
 - SK이노베이션의 기술도입 로드맵을 4단계 이상 phase 기반으로 작성한다.
 - 각 phase는 반드시 아래 구조를 따른다:
@@ -786,6 +991,8 @@ CRI: {report_input.regulatory.cri_estimate or '-'}
   - 규제/사업화 체크리스트
 - 체크리스트 표는 '항목 | 중요도 | 관련 지표 | 비고' 컬럼을 사용한다.
 - 컨텍스트가 불충분한 부분은 "(추정)"을 표시한다.
+- 로드맵은 우리 회사 사업/R&D/설비 문맥과 연결된 실행 계획처럼 작성한다.
+{_section_writing_requirements('기술도입 로드맵 및 체크리스트')}
 """
         return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
     except Exception as exc:
@@ -933,9 +1140,9 @@ async def generate_report(
         regulatory_sources = _sources_for_refs(all_sources, report_input.regulatory.sources)
 
         section1_prompts = _build_section1_prompts(report_input, company_context, all_sources)
-        section2_prompts = _build_section2_prompts(report_input, scientific_sources)
-        section3_prompts = _build_section3_prompts(report_input, industrial_sources)
-        section4_prompts = _build_section4_prompts(report_input, regulatory_sources)
+        section2_prompts = _build_section2_prompts(report_input, scientific_sources, company_context)
+        section3_prompts = _build_section3_prompts(report_input, industrial_sources, company_context)
+        section4_prompts = _build_section4_prompts(report_input, regulatory_sources, company_context)
 
         section1_task = _generate_section(
             'section1',
@@ -969,6 +1176,7 @@ async def generate_report(
             'section6',
             *_build_section6_prompts(report_input, section5, company_context_section6, all_sources),
         )
+        section6 = section6.model_copy(update={'markdown': _polish_section6_markdown(section6.markdown)})
         section7 = _build_section7(all_sources)
 
         section_drafts = [section1, section2, section3, section4, section5, section6, section7]

@@ -238,16 +238,10 @@ _HTML_STYLE = """
   }
   .score-label {
     font-size: 8.5pt;
-    min-height: 18px;
+    min-height: 22px;
     color: #2c3e50;
     margin-bottom: 10px;
     font-weight: 600;
-  }
-  .score-rationale {
-    font-size: 7.5pt;
-    color: #52606d;
-    min-height: 30px;
-    margin-bottom: 10px;
   }
   .score-bar {
     width: 100%;
@@ -284,6 +278,13 @@ _HTML_STYLE = """
     background: #fff3cd;
     color: #856404;
   }
+  .citation-ref {
+    vertical-align: super;
+    font-size: 0.75em;
+    line-height: 1;
+    color: #495057;
+    margin-left: 1px;
+  }
 </style>
 """
 
@@ -303,13 +304,13 @@ def _build_base_name() -> str:
     return f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 
-def _write_markdown_fallback(markdown_text: str, output_dir: Path) -> str | None:
+def _write_markdown(markdown_text: str, output_dir: Path, base_name: str) -> str | None:
     try:
-        path = output_dir / f'{_build_base_name()}.md'
+        path = output_dir / f'{base_name}.md'
         path.write_text(markdown_text, encoding='utf-8')
         return str(path)
     except Exception:
-        logger.exception('Failed to save markdown fallback report')
+        logger.exception('Failed to save markdown report')
         return None
 
 
@@ -455,7 +456,6 @@ def _build_score_cards(chart_data) -> str:
               <div class="score-name">{name}</div>
               <div class="score-value">{value_text}</div>
               <div class="score-label">{item.label}</div>
-              <div class="score-rationale">{item.rationale or '판단 근거 정보 없음'}</div>
               <div class="score-bar"><div class="score-fill score-fill-{css_name}" style="width: {ratio}%;"></div></div>
             </div>
             """
@@ -489,24 +489,37 @@ def _decorate_verdict_badges(html_body: str) -> str:
     return html_body
 
 
+def _decorate_inline_citations(html_body: str) -> str:
+    return re.sub(r'\[\^(\d+)\]', r'<sup class="citation-ref">[\1]</sup>', html_body)
+
+
+def _polish_section6_html(html_body: str) -> str:
+    html_body = re.sub(r'<li><strong>([^<]+)</strong>:\s*</li>', r'<p><strong>\1</strong></p>', html_body)
+    html_body = re.sub(r'<li><strong>([^<]+)</strong>:\s*([^<][^<]*)</li>', r'<p><strong>\1</strong><br>\2</p>', html_body)
+    html_body = re.sub(r'<li>•\s*', '<li>', html_body)
+    return html_body
+
+
 def _decorate_sections(html_body: str) -> str:
     return re.sub(r'<h3>', '<div class="section-block"></div><h3>', html_body, count=0)
 
 
 def export_pdf(markdown_text: str, chart_data=None, title: str = '') -> str | None:
     output_dir = _resolve_output_dir()
+    base_name = _build_base_name()
+    markdown_path = _write_markdown(markdown_text, output_dir, base_name)
 
     try:
         import markdown as markdown_lib
     except Exception:
         logger.exception('markdown package import failed; saving markdown fallback instead')
-        return _write_markdown_fallback(markdown_text, output_dir)
+        return markdown_path
 
     try:
         from weasyprint import HTML
     except Exception:
         logger.exception('weasyprint import failed; saving markdown fallback instead')
-        return _write_markdown_fallback(markdown_text, output_dir)
+        return markdown_path
 
     try:
         html_body = markdown_lib.markdown(
@@ -516,16 +529,18 @@ def export_pdf(markdown_text: str, chart_data=None, title: str = '') -> str | No
         toc_page = _build_toc_page(markdown_text)
         html_body = _remove_markdown_toc_from_html(html_body)
         html_body = _insert_score_cards(html_body, chart_data)
+        html_body = _decorate_inline_citations(html_body)
         html_body = _decorate_verdict_badges(html_body)
+        html_body = _polish_section6_html(html_body)
         html_body = _decorate_sections(html_body)
         cover_page = _build_cover_page(title)
         html = (
             f'<!DOCTYPE html><html><head><meta charset="utf-8">{_HTML_STYLE}</head>'
             f'<body>{cover_page}{toc_page}{html_body}</body></html>'
         )
-        path = output_dir / f'{_build_base_name()}.pdf'
+        path = output_dir / f'{base_name}.pdf'
         HTML(string=html).write_pdf(str(path))
         return str(path)
     except Exception:
         logger.exception('PDF export failed; saving markdown fallback instead')
-        return _write_markdown_fallback(markdown_text, output_dir)
+        return markdown_path
