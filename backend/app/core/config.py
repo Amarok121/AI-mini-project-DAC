@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
 
     OPENAI_API_KEY: str = ''
+    OPENAI_MODEL: str = 'gpt-4o-mini'
     SEMANTIC_SCHOLAR_API_KEY: str = ''
     BIGKINDS_API_KEY: str = ''
     KIPRIS_API_KEY: str = ''

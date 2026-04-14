@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel
 from .claim import Claim
 
@@ -18,7 +18,7 @@ class ScientificAgentOutput(BaseModel):
     overall_grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     trl_estimate: str = 'TRL 1~3'
     summary: str = ''
-    error: str | None = None
+    error: Optional[str] = None
 
 
 class NewsResult(BaseModel):
@@ -44,7 +44,7 @@ class IndustrialAgentOutput(BaseModel):
     overall_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     mrl_estimate: str = 'MRL 1~3'
     summary: str = ''
-    error: str | None = None
+    error: Optional[str] = None
 
 
 class RegulatoryAgentOutput(BaseModel):
@@ -55,7 +55,11 @@ class RegulatoryAgentOutput(BaseModel):
     risks: list[str] = []
     requires_expert_review: bool = True
     source_urls: list[str] = []
-    error: str | None = None
+    error: Optional[str] = None
+    # 파이프라인(Tavily → 법령 추출 → 포털 → LLM) 보강 필드
+    reason: Optional[str] = None
+    extracted_law_candidates: list[str] = []
+    pipeline_notes: list[str] = []
 
 
 class ClaimVerificationResult(BaseModel):
