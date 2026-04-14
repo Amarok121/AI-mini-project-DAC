@@ -91,7 +91,18 @@ class CrossValidatorChain:
         critical_hype = any(g.status == 'CRITICAL_MISREPRESENTATION' for g in performance_gaps)
         high_reg_risk = any(rc.severity == 'HIGH' for rc in regulatory_conflicts)
 
+        # 요약 문자열 리스트(conflicts) 보완
+        for rc in regulatory_conflicts:
+            if rc.severity == 'HIGH':
+                conflicts.append(f"[REG_CRITICAL] {rc.description}: {rc.analyst_note}")
+        
+        for pg in performance_gaps:
+            if pg.status == 'Hype Warning' and f"[{pg.metric}]" not in "".join(conflicts):
+                conflicts.append(f"[HYPE_WARNING] {pg.metric}: {pg.description}")
+
         for claim in claims:
+            # 기존: GRADE가 LOW면 무조건 '판단 보류'로 빠지는 경향이 있었음.
+            # 변경: LOW GRADE라도 Evidence Pack(실제 연구 내역)이 존재한다면 비교 대상으로 활용.
             is_fake = critical_hype or (high_reg_risk and (scientific.overall_grade == 'LOW' or industrial.overall_level == 'LOW'))
 
             if is_fake:
@@ -99,7 +110,18 @@ class CrossValidatorChain:
                 verdict, credibility = '검증 실패 (허구/왜곡 의심)', 'LOW'
             else:
                 credibility = combine_credibility(scientific.overall_grade, industrial.overall_level)
-                verdict = '조건부 가능' if (scientific.overall_grade != 'LOW' and industrial.overall_level != 'LOW') else '판단 보류 (근거 부족)'
+                
+                # Scientific/Industrial 에이전트가 최소한의 결과(LOW GRADE 포함)라도 가져왔다면 비교 대상으로 인정
+                has_sci_evidence = len(scientific.papers) > 0
+                has_ind_evidence = len(industrial.news) > 0 or len(industrial.patents) > 0
+                
+                if has_sci_evidence and has_ind_evidence:
+                    verdict = '조건부 가능'
+                elif not has_sci_evidence and not has_ind_evidence:
+                    verdict = '판단 보류 (근거 부족)'
+                else:
+                    # 한쪽 근거만 있는 경우
+                    verdict = '조건부 가능 (단측 근거)'
 
             results.append(
                 ClaimVerificationResult(
