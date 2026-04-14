@@ -53,7 +53,7 @@ class CrossValidatorChain:
 
         prompt = f"""
         당신은 아첨 없는 냉철한 기술 감사관입니다. 
-        제시된 'Evidence Pack'을 바탕으로 클레임의 진위 여부와 수치 왜곡을 판정하십시오.
+        제시된 'Evidence Pack'을 바탕으로 클레임의 진위 여부와 서술적/수치적 왜곡을 판정하십시오.
 
         [사용자 클레임]
         {json.dumps(claims_dict, ensure_ascii=False)}
@@ -62,28 +62,41 @@ class CrossValidatorChain:
         {evidence_pack_context}
 
         [분석 가이드라인]
-        1. 지표 매핑: 뉴스의 주장 수치와 논문의 실증 데이터 중 '동일한 물리량'을 의미하는 것을 정확히 매핑하십시오.
-        2. 수치 격차 판정 기준: 2.0x 이상 격차 시 CRITICAL_MISREPRESENTATION (허구 의심)
-        3. 조건 누락: 논문의 'limitations'가 뉴스에서 무시되었는지 확인하십시오.
+        1. 수치 대조: 뉴스의 주장 수치와 논문의 실증 데이터 중 '동일한 물리량'을 매핑하십시오. 2.0x 이상 격차 시 판정하십시오.
+        2. 서술 및 논리 대조 (중요):
+           - 논문은 '이론적 모델/실험실 수준'인데 뉴스는 '실증 성공/상용화'로 묘사하는지 확인하십시오.
+           - 논문의 '한계점(limitations)'이나 '특수 조건'이 뉴스에서 의도적으로 생략되었는지 확인하십시오.
+           - 논문에서 입증되지 않은 효과를 뉴스가 논문의 권위를 빌려 과장하는지 확인하십시오.
 
-        결과는 "performance_gaps" 키를 가진 JSON 리스트로만 응답하십시오. (PerformanceGapResult 구조 준수)
+        결과는 아래 형식을 가진 JSON 오브젝트로 응답하십시오.
+        {{
+            "performance_gaps": [], // PerformanceGapResult 구조 (수치 중심)
+            "narrative_conflicts": [] // 서술적 모순/왜곡에 대한 구체적인 판단 근거 (문자열 리스트)
+        }}
         """
 
         try:
             response = await openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "당신은 기술적 모순을 잡아내는 데 특화된 감사관입니다. 절대 아첨하지 마십시오."},
+                    {"role": "system", "content": "당신은 기술적 모순과 서술적 왜곡을 잡아내는 데 특화된 감사관입니다. 절대 아첨하지 마십시오."},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"}
             )
             data = json.loads(response.choices[0].message.content)
+            
+            # 1. 수치적 격차 처리
             for pg_data in data.get("performance_gaps", []):
                 gap = PerformanceGapResult(**pg_data)
                 performance_gaps.append(gap)
                 if gap.status == 'CRITICAL_MISREPRESENTATION':
                     conflicts.append(f"[HYPE_ALERT] {gap.metric}: 이론적 근거({gap.sci_val}) 대비 {gap.hype_index}배 과장 감지.")
+            
+            # 2. 서술적 모순/왜곡 처리 (판단 근거를 conflicts에 직접 추가)
+            for nc in data.get("narrative_conflicts", []):
+                conflicts.append(f"[NARRATIVE_MISMATCH] {nc}")
+                
         except Exception as e:
             conflicts.append(f"[ANALYSIS_ERR] 교차 분석 실패: {str(e)}")
 
