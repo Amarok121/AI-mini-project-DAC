@@ -1,5 +1,5 @@
-from typing import Literal
-from pydantic import BaseModel
+from typing import Literal, Optional
+from pydantic import BaseModel, Field
 from .claim import Claim
 
 
@@ -11,6 +11,24 @@ class PaperResult(BaseModel):
     url: str = ''
     grade_score: float = 0.0
     grade_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    citation_count: int = 0
+    abstract: str = ''
+    semantic_scholar_id: str = ''
+    openalex_id: str = ''
+    arxiv_id: str = ''
+    doi: str = ''
+
+
+class GradeDimensionScores(BaseModel):
+    """설계 §7.1 GRADE 가중치에 맞춘 자동화 스켈레톤 (0~1 구간 점수)."""
+
+    study_design: float = Field(0.0, description='연구 설계 수준')
+    bias_risk: float = Field(0.0, description='편향 위험 (높을수록 양호)')
+    consistency_hint: float = Field(0.0, description='인용·일관성 힌트 (OpenAlex 등)')
+    directness: float = Field(0.0, description='실제 적용 조건과의 근접도 (휴리스틱)')
+    precision_hint: float = Field(0.0, description='표본·인용 규모 힌트')
+    venue_authority: float = Field(0.0, description='저널·출처 권위 휴리스틱')
+    weighted_total: float = Field(0.0, description='가중 합산')
 
 
 class ScientificAgentOutput(BaseModel):
@@ -18,7 +36,9 @@ class ScientificAgentOutput(BaseModel):
     overall_grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     trl_estimate: str = 'TRL 1~3'
     summary: str = ''
-    error: str | None = None
+    error: Optional[str] = None
+    grade_breakdown: Optional[GradeDimensionScores] = None
+    search_sources: list[str] = Field(default_factory=list)
 
 
 class NewsResult(BaseModel):
@@ -44,7 +64,7 @@ class IndustrialAgentOutput(BaseModel):
     overall_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     mrl_estimate: str = 'MRL 1~3'
     summary: str = ''
-    error: str | None = None
+    error: Optional[str] = None
 
 
 class RegulatoryAgentOutput(BaseModel):
@@ -55,7 +75,11 @@ class RegulatoryAgentOutput(BaseModel):
     risks: list[str] = []
     requires_expert_review: bool = True
     source_urls: list[str] = []
-    error: str | None = None
+    error: Optional[str] = None
+    # 파이프라인(Tavily → 법령 추출 → 포털 → LLM) 보강 필드
+    reason: Optional[str] = None
+    extracted_law_candidates: list[str] = []
+    pipeline_notes: list[str] = []
 
 
 class ClaimVerificationResult(BaseModel):
