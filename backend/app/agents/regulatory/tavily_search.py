@@ -14,7 +14,11 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
 from app.core.config import settings
+from app.agents.langchain_setup import get_chat_model
 
 if TYPE_CHECKING:
     from app.schemas.claim import Claim
@@ -40,6 +44,40 @@ class TavilyHit:
     title: str
     url: str
     content: str
+
+
+_PIPELINE_QUERY_SCHEMA_HINT = """{
+  "query": string
+}"""
+
+_PIPELINE_QUERY_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            (
+                "You craft a single web-search query (Korean/English mixed OK) for finding official regulatory, "
+                "permitting, and incentive information. Output JSON only.\n"
+                "- Prioritize environment/climate Direct Air Capture (DAC) and carbon capture/removal context.\n"
+                "- Include CCU/CCUS/CCS/CDR, sequestration, permitting, 45Q, Class VI/UIC, NEPA keywords only if relevant.\n"
+                "- Avoid unrelated acronyms: here 'DAC' means Direct Air Capture, not EU tax 'Directive on Administrative Cooperation' (DAC6/7).\n"
+                "- Keep it short (<= 240 chars) but specific.\n"
+                f"Schema: {_PIPELINE_QUERY_SCHEMA_HINT}"
+            ),
+        ),
+        ("user", "{claims_block}"),
+    ]
+)
+
+
+def _pipeline_query_chain():
+    return _PIPELINE_QUERY_PROMPT | get_chat_model(temperature=0.2, json_mode=True) | JsonOutputParser()
+
+
+def _claims_block_for_query(claims: list[Claim]) -> str:
+    lines: list[str] = []
+    for c in claims[:8]:
+        lines.append(f"- 기술: {c.technology} | 주장: {c.claim} | 적용: {c.application}")
+    return "\n".join(lines) if lines else "- (클레임 없음)"
 
 
 def build_regulatory_query(claims: list[Claim]) -> str:
@@ -72,6 +110,26 @@ def build_pipeline_tavily_query(claims: list[Claim]) -> str:
     )
     return f"{tech} {expand} environmental regulation policy"
 
+
+async def build_pipeline_tavily_query_llm(claims: list[Claim]) -> str:
+    """
+    LLM 기반: 입력 클레임에 맞춘 Tavily 파이프라인 쿼리 생성.
+    실패 시 휴리스틱(`build_pipeline_tavily_query`)로 폴백.
+    """
+    if not (settings.OPENAI_API_KEY or "").strip():
+        return build_pipeline_tavily_query(claims)
+    try:
+        data = await _pipeline_query_chain().ainvoke({"claims_block": _claims_block_for_query(claims)})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("regulatory query LLM failed: %s", exc)
+        return build_pipeline_tavily_query(claims)
+
+    if not isinstance(data, dict):
+        return build_pipeline_tavily_query(claims)
+    q = str(data.get("query") or "").strip()
+    if not q:
+        return build_pipeline_tavily_query(claims)
+    return q[:240]
 
 def _search_sync(query: str, max_results: int) -> list[TavilyHit]:
     if not (settings.TAVILY_API_KEY or "").strip():
@@ -115,5 +173,5 @@ async def search_regulatory_context(
 
 async def search_regulations_pipeline(claims: list[Claim], *, max_results: int = 10) -> list[TavilyHit]:
     """파이프라인 전용: 확장 쿼리 + 동일 공식 도메인 필터."""
-    q = build_pipeline_tavily_query(claims)
+    q = await build_pipeline_tavily_query_llm(claims)
     return await search_regulatory_context(q, max_results=max_results)
