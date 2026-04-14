@@ -1,5 +1,7 @@
 from typing import Literal, Optional
+
 from pydantic import BaseModel, Field
+
 from .claim import Claim
 
 
@@ -40,7 +42,6 @@ class PaperResult(BaseModel):
     openalex_id: str = ''
     arxiv_id: str = ''
     doi: str = ''
-    # Evidence pack (초록·메타 기반; 교차검증·Report용 서술)
     summary: str = ''
     excerpt: str = ''
     key_point: str = ''
@@ -70,16 +71,65 @@ class ScientificAgentOutput(BaseModel):
     search_sources: list[str] = Field(default_factory=list)
 
 
+class NewsEvaluationBreakdown(BaseModel):
+    currency: float = 0.0
+    relevance: float = 0.0
+    authority: float = 0.0
+    accuracy: float = 0.0
+    purpose: float = 0.0
+
+
+class NewsEvaluation(BaseModel):
+    score: float = 0.0
+    grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    breakdown: NewsEvaluationBreakdown = Field(default_factory=NewsEvaluationBreakdown)
+    flags: list[str] = Field(default_factory=list)
+    verdict: str = ''
+    reason: str = ''
+
+
+class NewsEvidenceNarrative(BaseModel):
+    summary: str = ''
+    excerpt: str = ''
+    note: str = ''
+
+
 class NewsResult(BaseModel):
     title: str
     provider: str = ''
     published_at: str = ''
     url: str = ''
+    excerpt: str = ''
+    summary: str = ''
     craap_score: float = 0.0
     craap_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    flags: list[str] = Field(default_factory=list)
+    verdict: str = ''
+    reason: str = ''
+    evaluation: NewsEvaluation = Field(default_factory=NewsEvaluation)
+
+
+class PatentEvaluationBreakdown(BaseModel):
+    search_match: float = 0.0
+    legal_status: float = 0.0
+    citation_signal: float = 0.0
+    specificity: float = 0.0
+
+
+class PatentEvaluation(BaseModel):
+    score: float = 0.0
+    grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    breakdown: PatentEvaluationBreakdown = Field(default_factory=PatentEvaluationBreakdown)
+    flags: list[str] = Field(default_factory=list)
+    verdict: str = ''
+    reason: str = ''
+
+
+class PatentEvidenceNarrative(BaseModel):
     summary: str = ''
     excerpt: str = ''
-    flags: list[str] = Field(default_factory=list)
+    key_point: str = ''
+    note: str = ''
 
 
 class PatentResult(BaseModel):
@@ -89,10 +139,15 @@ class PatentResult(BaseModel):
     status: Literal['등록', '심사중', '출원'] = '출원'
     is_core_tech: bool = False
     url: str = ''
+    excerpt: str = ''
     summary: str = ''
     key_point: str = ''
+    core_score: float = 0.0
     core_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     flags: list[str] = Field(default_factory=list)
+    verdict: str = ''
+    reason: str = ''
+    evaluation: PatentEvaluation = Field(default_factory=PatentEvaluation)
 
 
 class IndustrialAgentOutput(BaseModel):
@@ -117,7 +172,6 @@ class RegulatoryAgentOutput(BaseModel):
         description='교차검증·Report용 근거 팩 서술(수집·판단 요약)',
     )
     error: Optional[str] = None
-    # 파이프라인(Tavily → 법령 추출 → 포털 → LLM) 보강 필드
     reason: Optional[str] = None
     extracted_law_candidates: list[str] = []
     pipeline_notes: list[str] = []
@@ -128,7 +182,7 @@ class ClaimVerificationResult(BaseModel):
     claim: Claim
     credibility: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     verdict: str = '판단 보류'
-    flags: list[str] = []
+    flags: list[str] = Field(default_factory=list)
     trl: str = 'TRL 1~3'
     mrl: str = 'MRL 1~3'
     cri: str = 'CRI 1~3'
