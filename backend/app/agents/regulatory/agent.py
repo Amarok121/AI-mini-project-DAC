@@ -8,6 +8,7 @@ from typing import Any, Optional
 from app.core.config import settings
 from app.schemas.claim import Claim
 from app.schemas.agent_result import RegulatoryAgentOutput, SelectedRegulatoryDocument, RegulatoryEvidenceItem
+from app.schemas.source import SourceItem
 
 from app.agents.regulatory.portal_fetch import PortalDocument
 
@@ -54,6 +55,16 @@ def _mock_output(note: Optional[str] = None) -> RegulatoryAgentOutput:
         extracted_law_candidates=[],
         pipeline_notes=[],
         documents_for_validation=[],
+        summary="공식 규제 검색이 비활성화되어 mock 규제 응답을 사용했습니다.",
+        sources=[
+            SourceItem(
+                title="탄소중립기본법 (mock)",
+                source_type="regulation",
+                url="https://www.law.go.kr",
+                publisher="law.go.kr",
+                raw_text="공식 원문 없이 제목·도메인만으로는 적용 여부를 확정할 수 없다.",
+            )
+        ],
     )
 
 
@@ -74,6 +85,16 @@ def _fallback_from_hits_only(
     urls: list[str],
     notes: list[str],
 ) -> RegulatoryAgentOutput:
+    sources = [
+        SourceItem(
+            title=title,
+            source_type='regulation',
+            url=urls[index] if index < len(urls) else None,
+            publisher='regulation-search',
+            raw_text='웹 스니펫·제목 수준의 근거만 있어 적용성은 불명확하며, 공식 법령 원문 대조가 필요하다.',
+        )
+        for index, title in enumerate(titles[:6])
+    ]
     return RegulatoryAgentOutput(
         verdict="불명확",
         confidence="MED",
@@ -93,6 +114,8 @@ def _fallback_from_hits_only(
         extracted_law_candidates=[],
         pipeline_notes=notes,
         documents_for_validation=[],
+        summary="웹 스니펫·제목 기준의 폴백 규제 분석 결과입니다.",
+        sources=sources,
     )
 
 
@@ -343,6 +366,45 @@ def _fallback_evidences_from_sources(
     return out
 
 
+def _evidences_to_sources(evidences: list[RegulatoryEvidenceItem], source_urls: list[str]) -> list[SourceItem]:
+    items: list[SourceItem] = []
+    for evidence in evidences[:6]:
+        items.append(
+            SourceItem(
+                title=evidence.title,
+                authors=[],
+                year=_extract_year(evidence.published_at),
+                source_type='regulation',
+                url=evidence.url or None,
+                publisher=evidence.source or 'regulation',
+                raw_text=evidence.excerpt or evidence.summary or evidence.key_point,
+            )
+        )
+    if not items:
+        for url in source_urls[:6]:
+            items.append(
+                SourceItem(
+                    title=url,
+                    source_type='regulation',
+                    url=url,
+                    publisher='regulation',
+                    raw_text='규제 근거 링크',
+                )
+            )
+    return [item for item in items if item.title or item.url or item.raw_text]
+
+
+def _extract_year(value: str) -> int | None:
+    digits = ''.join(ch if ch.isdigit() else ' ' for ch in (value or '')).split()
+    if not digits:
+        return None
+    try:
+        year = int(digits[0])
+    except ValueError:
+        return None
+    return year if 1900 <= year <= 2100 else None
+
+
 def _dict_to_output(
     analysis: dict[str, Any],
     law_names: list[str],
@@ -357,6 +419,15 @@ def _dict_to_output(
     evidences = _analysis_to_evidences(analysis)
     if not evidences:
         evidences = _fallback_evidences_from_sources(portal_docs, hits, claims)
+    evidence_summary = _ensure_evidence_summary(
+        str(ev_sum).strip() if ev_sum is not None else "",
+        verdict=_safe_verdict(analysis.get("verdict")),
+        confidence=_safe_confidence(analysis.get("confidence")),
+        incentives=list(analysis.get("incentives") or [])[:20],
+        risks=list(analysis.get("risks") or [])[:20],
+        source_urls=picked_urls,
+        portal_docs=portal_docs,
+    )
     return RegulatoryAgentOutput(
         verdict=_safe_verdict(analysis.get("verdict")),
         confidence=_safe_confidence(analysis.get("confidence")),
@@ -366,20 +437,14 @@ def _dict_to_output(
         risks=list(analysis.get("risks") or [])[:20],
         requires_expert_review=bool(analysis.get("requires_expert_review", True)),
         source_urls=picked_urls,
-        evidence_summary=_ensure_evidence_summary(
-            str(ev_sum).strip() if ev_sum is not None else "",
-            verdict=_safe_verdict(analysis.get("verdict")),
-            confidence=_safe_confidence(analysis.get("confidence")),
-            incentives=list(analysis.get("incentives") or [])[:20],
-            risks=list(analysis.get("risks") or [])[:20],
-            source_urls=picked_urls,
-            portal_docs=portal_docs,
-        ),
+        evidence_summary=evidence_summary,
         error=None,
+        summary=evidence_summary,
         reason=(analysis.get("reason") or None),
         extracted_law_candidates=law_names,
         pipeline_notes=pipeline_notes,
         documents_for_validation=_portal_docs_to_validation(portal_docs),
+        sources=_evidences_to_sources(evidences, picked_urls),
     )
 
 

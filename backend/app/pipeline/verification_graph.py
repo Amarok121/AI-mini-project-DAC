@@ -114,11 +114,13 @@ async def report_node(state: VerificationState) -> VerificationState:
         regulatory=state["regulatory"],
         cross_validation=state["cross_validation"],
         citation_metadata=report_output.citation_metadata,
+        chart_data=getattr(report_output, 'chart_data', None),
         pdf_path=report_output.pdf_path,
     )
     return {
         "report_markdown": report_markdown,
         "citation_metadata": report_output.citation_metadata,
+        "chart_data": getattr(report_output, 'chart_data', None),
         "pdf_path": report_output.pdf_path,
         "result": result,
     }

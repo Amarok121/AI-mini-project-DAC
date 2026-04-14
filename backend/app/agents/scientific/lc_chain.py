@@ -11,6 +11,7 @@ from langchain_core.runnables import RunnableLambda, RunnableSequence
 from app.schemas.claim import Claim
 from app.schemas.agent_result import GradeDimensionScores, ScientificAgentOutput
 from app.core.config import settings
+from app.schemas.source import SourceItem
 
 from app.agents.scientific.grade_evaluator import (
     average_grade_dimensions,
@@ -24,6 +25,26 @@ from app.agents.scientific.semantic_scholar import search_papers
 from app.agents.scientific.paper_evidence_llm import enrich_papers_evidence_pack
 
 logger = logging.getLogger(__name__)
+
+
+def _paper_sources_from_results(papers: list[object]) -> list[SourceItem]:
+    sources: list[SourceItem] = []
+    for paper in papers:
+        raw_text = (
+            getattr(paper, "excerpt", "") or getattr(paper, "summary", "") or getattr(paper, "abstract", "")
+        )
+        sources.append(
+            SourceItem(
+                title=str(getattr(paper, "title", "") or ""),
+                authors=list(getattr(paper, "authors", []) or []),
+                year=getattr(paper, "year", None) or None,
+                source_type="paper",
+                url=str(getattr(paper, "url", "") or ""),
+                publisher=str(getattr(paper, "journal", "") or ""),
+                raw_text=str(raw_text or ""),
+            )
+        )
+    return [source for source in sources if source.title or source.url or source.raw_text]
 
 
 def _build_search_query(claims: list[Claim]) -> str:
@@ -404,6 +425,7 @@ async def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentO
         error=None,
         grade_breakdown=avg_dims,
         search_sources=sources,
+        sources=_paper_sources_from_results(papers),
     )
 
 
