@@ -24,8 +24,8 @@ LAW_EXTRACT_PROMPT = ChatPromptTemplate.from_messages(
             (
                 "You extract concrete law, regulation, and policy names cited or implied in snippets. "
                 "Prefer official titles, article numbers, act names (e.g. IRA 45Q, 탄소중립기본법, "
-                "EU CBAM Regulation). Return JSON: {\"laws\": string[]}. "
-                "Max 8 items. If nothing reliable, {\"laws\": []}. "
+                "EU CBAM Regulation). Return JSON: {{\"laws\": string[]}}. "
+                "Max 8 items. If nothing reliable, {{\"laws\": []}}. "
                 "Do not invent names not supported by the text."
             ),
         ),

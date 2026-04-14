@@ -212,8 +212,8 @@ async def _fetch_sources(state: dict[str, Any]) -> dict[str, Any]:
     ss_oa_error: str | None = None
     try:
         ss_list, oa_list = await asyncio.gather(
-            asyncio.to_thread(search_papers, q, 10),
-            asyncio.to_thread(search_works, q, 10),
+            asyncio.to_thread(lambda: search_papers(q, limit=10)),
+            asyncio.to_thread(lambda: search_works(q, per_page=10)),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("scientific SS/OA search failed")
@@ -223,7 +223,7 @@ async def _fetch_sources(state: dict[str, Any]) -> dict[str, Any]:
     arx_list: list[dict[str, Any]] = []
     if not ss_oa_error:
         try:
-            arx_list = await asyncio.to_thread(search_preprints, q, 10)
+            arx_list = await asyncio.to_thread(lambda: search_preprints(q, limit=10))
         except Exception as exc:  # noqa: BLE001
             logger.warning("arXiv search failed: %s", exc)
 
