@@ -40,6 +40,13 @@ class PaperResult(BaseModel):
     openalex_id: str = ''
     arxiv_id: str = ''
     doi: str = ''
+    # Evidence pack (초록·메타 기반; 교차검증·Report용 서술)
+    summary: str = ''
+    excerpt: str = ''
+    key_point: str = ''
+    conditions: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    evidence_note: str = ''
 
 
 class GradeDimensionScores(BaseModel):
@@ -71,6 +78,9 @@ class NewsResult(BaseModel):
     url: str = ''
     craap_score: float = 0.0
     craap_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    summary: str = ''
+    excerpt: str = ''
+    flags: list[str] = Field(default_factory=list)
 
 
 class PatentResult(BaseModel):
@@ -79,6 +89,11 @@ class PatentResult(BaseModel):
     application_date: str = ''
     status: Literal['등록', '심사중', '출원'] = '출원'
     is_core_tech: bool = False
+    url: str = ''
+    summary: str = ''
+    key_point: str = ''
+    core_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    flags: list[str] = Field(default_factory=list)
 
 
 class IndustrialAgentOutput(BaseModel):
@@ -98,6 +113,10 @@ class RegulatoryAgentOutput(BaseModel):
     risks: list[str] = []
     requires_expert_review: bool = True
     source_urls: list[str] = []
+    evidence_summary: str = Field(
+        default='',
+        description='교차검증·Report용 근거 팩 서술(수집·판단 요약)',
+    )
     error: Optional[str] = None
     # 파이프라인(Tavily → 법령 추출 → 포털 → LLM) 보강 필드
     reason: Optional[str] = None

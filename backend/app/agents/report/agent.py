@@ -41,6 +41,18 @@ def _scientific_sources_md(scientific: ScientificAgentOutput) -> str:
             meta.append(f"Semantic Scholar: `{p.semantic_scholar_id}`")
         if meta:
             lines.append("  - " + " · ".join(meta))
+        if p.summary:
+            lines.append(f"  - **요약 (evidence pack):** {p.summary}")
+        if p.key_point:
+            lines.append(f"  - 핵심: {p.key_point}")
+        if p.conditions:
+            lines.append(f"  - 조건: {', '.join(p.conditions[:12])}")
+        if p.limitations:
+            lines.append(f"  - 한계: {', '.join(p.limitations[:12])}")
+        if p.excerpt:
+            lines.append(f"  - 발췌: _{p.excerpt}_")
+        if p.evidence_note:
+            lines.append(f"  - 과장 주의: {p.evidence_note}")
         lines.append("")
     return "\n".join(lines)
 
@@ -67,7 +79,27 @@ def _industrial_sources_md(industrial: IndustrialAgentOutput) -> str:
             lines.append(f"  - 일자: {n.published_at}")
         if n.url:
             lines.append(f"  - [링크]({n.url})")
+        if n.summary:
+            lines.append(f"  - 요약: {n.summary}")
+        if n.excerpt:
+            lines.append(f"  - 발췌: _{n.excerpt}_")
+        if n.flags:
+            lines.append(f"  - 플래그: {', '.join(n.flags)}")
         lines.append("")
+    if industrial.patents:
+        lines.append("#### 특허 (Industrial)")
+        lines.append("")
+        for pt in industrial.patents[:8]:
+            lines.append(f"- **{pt.title}** ({pt.status})")
+            if pt.url:
+                lines.append(f"  - [링크]({pt.url})")
+            if pt.summary:
+                lines.append(f"  - 요약: {pt.summary}")
+            if pt.key_point:
+                lines.append(f"  - 핵심: {pt.key_point}")
+            if pt.flags:
+                lines.append(f"  - 플래그: {', '.join(pt.flags)}")
+            lines.append("")
     return "\n".join(lines)
 
 
@@ -112,6 +144,15 @@ def _regulatory_section_md(regulatory: RegulatoryAgentOutput) -> str:
         for u in regulatory.source_urls[:12]:
             lines.append(f"  - {u}")
         lines.append("")
+    if regulatory.evidence_summary:
+        lines.extend(
+            [
+                "- **규제 근거 팩 (evidence_summary):**",
+                "",
+                regulatory.evidence_summary,
+                "",
+            ]
+        )
     if regulatory.reason:
         lines.extend(["- **판단 근거 요약 (에이전트):**", "", regulatory.reason, ""])
     if regulatory.extracted_law_candidates:

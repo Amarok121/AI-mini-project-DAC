@@ -23,6 +23,7 @@ _ANALYSIS_SCHEMA_HINT = """{
   "verdict": "해당" | "미해당" | "불명확",
   "confidence": "HIGH" | "MED" | "LOW",
   "reason": string,
+  "evidence_summary": string,
   "requires_expert_review": boolean
 }"""
 
@@ -81,6 +82,7 @@ async def analyze_regulatory_impact(
 요구사항:
 - 공식 원문이 없거나 불충분하면 verdict는 "불명확", confidence는 "LOW" 또는 "MED".
 - 인센티브·세제(예: 45Q)는 조건(규모, 연간 톤수 등)을 reason에 숫자와 함께 명시.
+- `evidence_summary`: 교차검증·보고서용 근거 팩. 한국어 3~6문장. 어떤 출처를 근거로 했는지, 적용 가능성·불확실성·전문가 검토 필요 여부를 요약 (reason과 중복 가능하나 서술형으로 독립 읽기 가능하게).
 - 환각 금지: 텍스트에 없는 조문 번호를 지어내지 마세요.
 - JSON만 출력. 스키마:
 {_ANALYSIS_SCHEMA_HINT}
