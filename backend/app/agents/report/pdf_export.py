@@ -35,23 +35,26 @@ _HTML_STYLE = """
     }
   }
   body {
-    font-family: "NanumGothic", "Nanum Gothic", sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "NanumGothic", "Nanum Gothic", sans-serif;
+    font-size: 9pt;
+    line-height: 1.45;
     color: #111;
   }
   h1 {
     string-set: report-title content();
+    font-size: 20pt;
   }
   h2 {
     color: #1f2d3d;
     margin-top: 18px;
+    font-size: 14pt;
   }
   h3 {
     color: #2c3e50;
     border-bottom: 1px solid #dee2e6;
     padding-bottom: 6px;
     margin-top: 24px;
+    font-size: 11pt;
   }
   table {
     width: 100%;
@@ -90,12 +93,12 @@ _HTML_STYLE = """
     page-break-after: always;
   }
   .cover-title {
-    font-size: 28pt;
+    font-size: 22pt;
     font-weight: 700;
     margin-bottom: 12px;
   }
   .cover-subtitle {
-    font-size: 14pt;
+    font-size: 11pt;
     color: #4b5563;
     margin-bottom: 28px;
   }
@@ -106,19 +109,19 @@ _HTML_STYLE = """
     margin: 0 auto 28px auto;
   }
   .cover-meta {
-    font-size: 12pt;
+    font-size: 10pt;
     margin: 8px 0;
   }
   .cover-note {
     margin-top: 180px;
-    font-size: 9pt;
+    font-size: 8pt;
     color: #6c757d;
   }
   .toc-page {
     page-break-after: always;
   }
   .toc-title {
-    font-size: 20pt;
+    font-size: 15pt;
     margin-bottom: 16px;
     color: #1f2d3d;
   }
@@ -133,6 +136,7 @@ _HTML_STYLE = """
     border-bottom: 1px dotted #cbd5e1;
     padding: 8px 0;
     color: #334155;
+    font-size: 9pt;
   }
   .toc-item-text,
   .toc-item-no {
@@ -147,26 +151,55 @@ _HTML_STYLE = """
   .score-panel {
     display: table;
     width: 100%;
+    max-width: 100%;
     table-layout: fixed;
     margin: 12px 0 24px 0;
     border: 1px solid #dbe3ec;
     background: linear-gradient(180deg, #fbfcfe 0%, #f6f8fb 100%);
+    page-break-inside: avoid;
+    break-inside: avoid;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .score-panel::after {
+    content: "";
+    display: block;
+    clear: both;
   }
   .score-panel-chart,
   .score-panel-cards {
     display: table-cell;
     vertical-align: top;
-    padding: 18px;
+    padding: 0;
+    box-sizing: border-box;
   }
   .score-panel-chart {
-    width: 46%;
+    width: 44%;
     border-right: 1px solid #dbe3ec;
   }
   .score-panel-cards {
-    width: 54%;
+    width: 56%;
+  }
+  .score-panel-chart-inner,
+  .score-panel-cards-inner {
+    padding: 14px;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  .score-panel + table,
+  .score-panel + p + table,
+  .score-panel + div + table {
+    display: table;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    table-layout: fixed;
+    page-break-inside: auto;
+    break-inside: auto;
+    clear: both;
   }
   .panel-title {
-    font-size: 10pt;
+    font-size: 9pt;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #64748b;
@@ -174,10 +207,12 @@ _HTML_STYLE = """
   }
   .radar-wrap {
     text-align: center;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   .radar-caption {
     margin-top: 10px;
-    font-size: 9pt;
+    font-size: 7.5pt;
     color: #64748b;
   }
   .score-cards {
@@ -190,26 +225,26 @@ _HTML_STYLE = """
     margin-bottom: 12px;
   }
   .score-name {
-    font-size: 10pt;
+    font-size: 8pt;
     color: #6c757d;
     margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
   .score-value {
-    font-size: 22pt;
+    font-size: 16pt;
     font-weight: 700;
     margin-bottom: 2px;
   }
   .score-label {
-    font-size: 10pt;
+    font-size: 8.5pt;
     min-height: 18px;
     color: #2c3e50;
     margin-bottom: 10px;
     font-weight: 600;
   }
   .score-rationale {
-    font-size: 9pt;
+    font-size: 7.5pt;
     color: #52606d;
     min-height: 30px;
     margin-bottom: 10px;
@@ -234,7 +269,7 @@ _HTML_STYLE = """
     display: inline-block;
     padding: 2px 8px;
     border-radius: 999px;
-    font-size: 9pt;
+    font-size: 7.5pt;
     font-weight: 700;
   }
   .badge-support {
@@ -381,14 +416,18 @@ def _build_radar_chart(chart_data) -> str:
         f'<polygon points="{points_text}" fill="none" stroke="#dbe3ec" stroke-width="1" />'
         for points_text in grid_levels
     )
+    point_circles = ''.join(
+        f'<circle cx="{coord.split(",")[0]}" cy="{coord.split(",")[1]}" r="4" fill="#2c82c9" />'
+        for coord in data_coords
+    )
     return (
         '<div class="radar-wrap">'
         '<div class="panel-title">Score Radar</div>'
-        '<svg width="300" height="300" viewBox="0 0 300 300" aria-label="score radar chart">'
+        '<svg width="260" height="260" viewBox="0 0 300 300" aria-label="score radar chart">'
         f'{grid_svg}'
         f'{"".join(labels)}'
         f'<polygon points="{" ".join(data_coords)}" fill="rgba(52, 152, 219, 0.18)" stroke="#2c82c9" stroke-width="2" />'
-        f'{"".join(f"<circle cx={coord.split(',')[0]} cy={coord.split(',')[1]} r=4 fill=#2c82c9 />" for coord in data_coords)}'
+        f'{point_circles}'
         '</svg>'
         '<div class="radar-caption">TRL / MRL / CRI의 상대적 현재 수준을 시각적으로 비교한 요약 차트</div>'
         '</div>'
@@ -433,8 +472,8 @@ def _insert_score_cards(html_body: str, chart_data) -> str:
 
     score_panel = (
         '<section class="score-panel">'
-        f'<div class="score-panel-chart">{radar_chart}</div>'
-        f'<div class="score-panel-cards">{score_cards}</div>'
+        f'<div class="score-panel-chart"><div class="score-panel-chart-inner">{radar_chart}</div></div>'
+        f'<div class="score-panel-cards"><div class="score-panel-cards-inner">{score_cards}</div></div>'
         '</section>'
     )
     marker = '<h3>최종 평가표 및 해설</h3>'
