@@ -80,7 +80,7 @@
         <div class="card">
           <div class="card-header">
             <div style="display: flex; align-items: center; gap: 10px">
-              <span style="font-weight: 900; color: #14532d">결과 요약</span>
+              <span style="font-weight: 900; color: var(--text-strong)">결과 요약</span>
             </div>
             <div style="display: flex; gap: 8px">
               <button class="icon-btn" title="Download" :disabled="!result">⭳</button>
@@ -91,7 +91,7 @@
             <div v-if="!result" class="hint">아직 결과가 없습니다. 왼쪽에서 입력 후 Confirm을 누르세요.</div>
             <div v-else class="split-row">
               <div style="flex: 1; min-width: 0">
-                <div style="font-size: 12px; font-weight: 900; color: #374151; letter-spacing: 0.08em; text-transform: uppercase">
+                <div style="font-size: 12px; font-weight: 900; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase">
                   최종 판단
                 </div>
                 <div class="summary-text" style="margin-top: 8px">
@@ -134,7 +134,7 @@
                     <div class="card-body" style="display: grid; grid-template-columns: 1.2fr 0.9fr 0.9fr; gap: 14px">
                       <div>
                         <div class="hint" style="font-weight: 800; letter-spacing: 0.06em">CLAIM</div>
-                        <div style="margin-top: 6px; font-weight: 800; color: #111827">{{ cv.claim }}</div>
+                        <div style="margin-top: 6px; font-weight: 800; color: var(--text)">{{ cv.claim }}</div>
                       </div>
                       <div>
                         <div class="hint" style="font-weight: 800; letter-spacing: 0.06em">VERDICT</div>

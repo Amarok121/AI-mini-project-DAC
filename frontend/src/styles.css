@@ -1,4 +1,6 @@
-:root {
+/* Default: dark (Midnight Console) */
+:root,
+html[data-theme="dark"] {
   /* Midnight Console (Carbon Black + Metallic Ash + Midnight Blue) */
   --bg: #0b0f14;
   --card: #121923;
@@ -11,6 +13,66 @@
   --accent: #20c997;
   --warn: #f4b740;
   --danger: #ff5a6a;
+  --text-strong: #f1f6ff;
+  --text-soft: #c5d1e2;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+  --shadow-hover:
+    0 22px 55px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 0 1px rgba(45, 76, 255, 0.14),
+    0 0 18px rgba(45, 76, 255, 0.18),
+    0 0 26px rgba(154, 167, 183, 0.10);
+  --glow-1: rgba(45, 76, 255, 0.18);
+  --glow-2: rgba(32, 201, 151, 0.12);
+  --glow-3: rgba(154, 167, 183, 0.08);
+  --topbar-bg: rgba(11, 15, 20, 0.7);
+  --topbar-border: rgba(36, 48, 65, 0.7);
+  --input-bg: rgba(23, 31, 43, 0.7);
+  --tab-bg: rgba(23, 31, 43, 0.7);
+  --tab-active-bg: rgba(18, 25, 35, 0.95);
+  --surface-tint: rgba(23, 31, 43, 0.75);
+  --icon-bg: rgba(18, 25, 35, 0.9);
+  --icon-bg-hover: rgba(23, 31, 43, 0.9);
+  --focus-ring: rgba(45, 76, 255, 0.25);
+  --focus-border: rgba(45, 76, 255, 0.75);
+  --mono-bg: rgba(18, 25, 35, 0.7);
+}
+
+/* Light theme: Metallic Ash + Sapphire accents */
+html[data-theme="light"] {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --card-2: #f2f4f8;
+  --border: #d8dee9;
+  --text: #0b1220;
+  --muted: #5a6a82;
+  --brand: #2d4cff; /* sapphire */
+  --brand-2: #2240e6;
+  --accent: #0ea5a4; /* cooler teal */
+  --warn: #b45309;
+  --danger: #e11d48;
+  --text-strong: #070c16;
+  --text-soft: #334155;
+  --shadow: 0 18px 40px rgba(9, 12, 20, 0.10);
+  --shadow-hover:
+    0 22px 55px rgba(9, 12, 20, 0.14),
+    0 0 0 1px rgba(45, 76, 255, 0.12),
+    0 0 18px rgba(45, 76, 255, 0.12),
+    0 0 22px rgba(90, 106, 130, 0.10);
+  --glow-1: rgba(45, 76, 255, 0.10);
+  --glow-2: rgba(14, 165, 164, 0.08);
+  --glow-3: rgba(90, 106, 130, 0.06);
+  --topbar-bg: rgba(246, 247, 251, 0.75);
+  --topbar-border: rgba(216, 222, 233, 0.85);
+  --input-bg: #f6f7fb;
+  --tab-bg: #eef1f7;
+  --tab-active-bg: #ffffff;
+  --surface-tint: rgba(242, 244, 248, 0.9);
+  --icon-bg: #ffffff;
+  --icon-bg-hover: #f2f4f8;
+  --focus-ring: rgba(45, 76, 255, 0.18);
+  --focus-border: rgba(45, 76, 255, 0.65);
+  --mono-bg: #f6f7fb;
 }
 
 * {
@@ -37,9 +99,9 @@ body {
   color: var(--text);
   background: var(--bg);
   background-image:
-    radial-gradient(900px 500px at 20% 0%, rgba(45, 76, 255, 0.18), transparent 60%),
-    radial-gradient(700px 420px at 85% 15%, rgba(32, 201, 151, 0.12), transparent 55%),
-    radial-gradient(900px 700px at 50% 120%, rgba(154, 167, 183, 0.08), transparent 60%);
+    radial-gradient(900px 500px at 20% 0%, var(--glow-1), transparent 60%),
+    radial-gradient(700px 420px at 85% 15%, var(--glow-2), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, var(--glow-3), transparent 60%);
 }
 
 a {
@@ -62,8 +124,8 @@ a:hover {
   top: 0;
   z-index: 10;
   backdrop-filter: blur(10px);
-  background: rgba(11, 15, 20, 0.7);
-  border-bottom: 1px solid rgba(36, 48, 65, 0.7);
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--topbar-border);
 }
 
 .topbar-inner {
@@ -148,6 +210,18 @@ a:hover {
   border-color: rgba(45, 76, 255, 0.25);
 }
 
+.theme-toggle {
+  min-width: 40px;
+  text-align: center;
+  background: rgba(23, 31, 43, 0.55);
+  border-color: rgba(36, 48, 65, 0.7);
+}
+
+html[data-theme="light"] .theme-toggle {
+  background: #ffffff;
+  border-color: rgba(216, 222, 233, 0.85);
+}
+
 .layout {
   display: grid;
   grid-template-columns: 420px 1fr;
@@ -166,7 +240,7 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow);
   transition:
     transform 180ms ease,
     box-shadow 220ms ease,
@@ -177,12 +251,7 @@ a:hover {
 .card:hover {
   transform: translateY(-2px);
   border-color: rgba(127, 181, 255, 0.28);
-  box-shadow:
-    0 22px 55px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
-    0 0 0 1px rgba(45, 76, 255, 0.14),
-    0 0 18px rgba(45, 76, 255, 0.18),
-    0 0 26px rgba(154, 167, 183, 0.10);
+  box-shadow: var(--shadow-hover);
 }
 
 /* Avoid hover jump for sticky topbar */
@@ -200,7 +269,7 @@ a:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: rgba(23, 31, 43, 0.75);
+  background: var(--surface-tint);
 }
 
 .badge {
@@ -242,7 +311,7 @@ a:hover {
   height: 34px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: rgba(18, 25, 35, 0.9);
+  background: var(--icon-bg);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -250,7 +319,7 @@ a:hover {
   color: var(--muted);
 }
 .icon-btn:hover {
-  background: rgba(23, 31, 43, 0.9);
+  background: var(--icon-bg-hover);
   color: var(--text);
 }
 
@@ -269,7 +338,7 @@ a:hover {
 .summary-text {
   font-size: 13px;
   line-height: 1.55;
-  color: #c5d1e2;
+  color: var(--text-soft);
 }
 
 .score-grid {
@@ -278,8 +347,8 @@ a:hover {
   gap: 10px;
 }
 .score-card {
-  background: rgba(23, 31, 43, 0.55);
-  border: 1px solid rgba(36, 48, 65, 0.8);
+  background: var(--card-2);
+  border: 1px solid color-mix(in srgb, var(--border), transparent 10%);
   border-radius: 10px;
   padding: 10px 12px;
 }
@@ -317,7 +386,7 @@ a:hover {
 }
 .bar-label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -340,7 +409,7 @@ a:hover {
 .bar-val {
   text-align: right;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .gauge {
@@ -412,7 +481,7 @@ a:hover {
 
 .tabs {
   display: flex;
-  background: rgba(23, 31, 43, 0.7);
+  background: var(--tab-bg);
   border-radius: 10px;
   padding: 4px;
   gap: 4px;
@@ -431,7 +500,7 @@ a:hover {
 }
 
 .tab.active {
-  background: rgba(18, 25, 35, 0.95);
+  background: var(--tab-active-bg);
   border: 1px solid var(--border);
   color: var(--text);
 }
@@ -487,7 +556,7 @@ input[type="text"] {
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
-  background: rgba(23, 31, 43, 0.7);
+  background: var(--input-bg);
   color: var(--text);
 }
 
@@ -495,8 +564,8 @@ select:focus,
 textarea:focus,
 input[type="text"]:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(45, 76, 255, 0.25);
-  border-color: rgba(45, 76, 255, 0.75);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-color: var(--focus-border);
 }
 
 textarea {
@@ -521,6 +590,10 @@ textarea {
   font-size: 14px;
   cursor: pointer;
   color: var(--text);
+}
+
+@supports not (color: color-mix(in srgb, white, black)) {
+  /* fallback for older engines: keep existing borders */
 }
 
 .btn.primary {
