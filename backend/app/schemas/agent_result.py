@@ -183,9 +183,6 @@ class ClaimVerificationResult(BaseModel):
     credibility: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     verdict: str = '판단 보류'
     flags: list[str] = Field(default_factory=list)
-    trl: str = 'TRL 1~3'
-    mrl: str = 'MRL 1~3'
-    cri: str = 'CRI 1~3'
 
 
 class PerformanceGapResult(BaseModel):
