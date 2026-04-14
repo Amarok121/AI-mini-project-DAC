@@ -58,7 +58,19 @@ def build_pipeline_tavily_query(claims: list[Claim]) -> str:
     for c in claims:
         chunks.append(f"{c.technology} {c.application}".strip())
     tech = " ".join(chunks) if chunks else "carbon capture"
-    return f"{tech} 규제 법령 인센티브 tax credit environmental regulation policy"
+    # 규제 탐색은 DAC(Direct Air Capture) 단독 키워드만으로는 누락이 생기기 쉬워
+    # CCU/CCUS/저장/인허가/세제/환경평가 프레임까지 넓혀서 검색한다.
+    expand = (
+        "CCU CCUS CCS CDR carbon removal "
+        "direct air capture DAC DACCS "
+        "carbon capture sequestration storage "
+        "45Q IRS tax credit "
+        "Class VI UIC EPA "
+        "NEPA permitting "
+        "탄소포집 탄소저장 이산화탄소 지중저장 탄소제거 "
+        "규제 법령 인허가 허가 인센티브 세액공제 환경영향평가"
+    )
+    return f"{tech} {expand} environmental regulation policy"
 
 
 def _search_sync(query: str, max_results: int) -> list[TavilyHit]:
