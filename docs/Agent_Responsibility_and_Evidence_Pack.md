@@ -20,13 +20,11 @@
 - 논문 요약
 - 실험 조건 / 한계 / 적용 범위 추출
 - GRADE 평가
-- TRL 추정
 
 출력의 핵심:
 
 - `papers`
 - `overall_grade`
-- `trl_estimate`
 - `summary`
 - `error`
 
@@ -193,7 +191,6 @@ Cross Validator에 주는 입력은 다음처럼 구성하는 것이 좋다.
   ],
   "scientific": {
     "overall_grade": "MED",
-    "trl_estimate": "TRL 5~6",
     "papers": [
       {
         "title": "...",
