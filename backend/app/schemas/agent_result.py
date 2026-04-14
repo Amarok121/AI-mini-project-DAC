@@ -205,9 +205,6 @@ class ClaimVerificationResult(BaseModel):
     credibility: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
     verdict: str = '판단 보류'
     flags: list[str] = Field(default_factory=list)
-    # NOTE: 교차검증 내부 계산/실험을 위한 필드지만, evidence-pack 기반 API 응답 계약에서는 제외
-    mrl: str = Field(default='MRL 1~3', exclude=True)
-    cri: str = Field(default='CRI 1~3', exclude=True)
 
 
 class PerformanceGapResult(BaseModel):

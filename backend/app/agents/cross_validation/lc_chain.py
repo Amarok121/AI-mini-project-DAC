@@ -128,10 +128,10 @@ class CrossValidatorChain:
                     claim=claim, 
                     credibility=credibility, 
                     verdict=verdict,
-                    flags=['HYPE_DETECTED'] if critical_hype else (['REGULATORY_RISK'] if high_reg_risk else []),
-                    mrl=industrial.mrl_estimate,
-                    cri="" # CRI 추정은 Spec에서 제외됨
+                    flags=['HYPE_DETECTED'] if critical_hype else (['REGULATORY_RISK'] if high_reg_risk else [])
                 )
+            )
+
             )
 
         return CrossValidatorOutput(
