@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build: ./backend
@@ -9,8 +7,23 @@ services:
       - .env
     volumes:
       - ./backend:/app
-    depends_on:
-      - chroma
+      - ./data/chroma:/app/data/chroma
+      - ./.cache/huggingface:/root/.cache/huggingface
+
+  ingest:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.ingest
+    env_file:
+      - .env
+    volumes:
+      - ./backend/app:/app/app
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+      - ./data/chroma:/app/data/chroma
+      - ./.cache/huggingface:/root/.cache/huggingface
+    profiles:
+      - ingest
 
   frontend:
     build: ./frontend
@@ -18,13 +31,3 @@ services:
       - "5173:5173"
     depends_on:
       - backend
-
-  chroma:
-    image: chromadb/chroma:latest
-    ports:
-      - "8001:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
-
-volumes:
-  chroma_data:

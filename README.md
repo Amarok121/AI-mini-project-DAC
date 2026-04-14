@@ -11,8 +11,12 @@ FastAPI + Vue + Chroma 기반 **기술 주장 검증·도입 가능성 조사** 
 cp .env.example .env
 ```
 
-`DART_DOCS_DIR` 아래에 회사 문서를 넣고 사용합니다.
-예: `data/dart/default/2024_report.pdf`
+`DART_DOCS_DIR` 아래에 회사별 폴더를 두고 문서를 넣어 사용합니다.
+예:
+- `data/dart/SK이노베이션/2024_report.pdf`
+- `data/dart/SK이노베이션/subdir/appendix.pdf`
+
+PDF는 재귀 탐색되므로 `data/dart/{회사명}/문서.pdf` 구조를 그대로 사용해도 됩니다.
 
 ## Run backend
 ```bash
@@ -56,10 +60,54 @@ pytest -q
 
 ## Run docker compose
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
+
+## First-time Docker setup
+현재 프로젝트는 별도 `chroma` 컨테이너 대신 로컬 저장형 Chroma(`PersistentClient`)를 사용합니다.
+벡터 데이터는 호스트의 `data/chroma/` 디렉토리에 저장되며, backend/ingest 컨테이너가 이를 공유합니다.
+
+처음 실행은 아래 순서를 권장합니다.
+
+1. 기본 서비스 기동
+```bash
+docker compose up --build
+```
+
+2. 회사 문서 1회 적재
+```bash
+docker compose --profile ingest run --rm ingest
+```
+
+3. 헬스체크 확인
+```bash
+curl http://localhost:8000/health
+```
+
+정상 응답:
+```json
+{"status":"ok"}
+```
+
+## Chroma storage
+- Chroma 벡터 데이터는 `data/chroma/`에 저장됩니다.
+- 같은 머신에서는 이 디렉토리가 유지되는 한 모델/벡터 데이터를 계속 재사용할 수 있습니다.
+- HuggingFace 모델 캐시는 `./.cache/huggingface`에 저장되며, backend와 ingest가 함께 사용합니다.
+
+## When to run ingest again
+아래 경우에만 `docker compose --profile ingest run --rm ingest`를 다시 실행하면 됩니다.
+- `data/dart/` 아래에 새 PDF를 추가했을 때
+- `data/chroma/`를 삭제했을 때
+- 청킹/임베딩 로직이 바뀌어서 기존 벡터 데이터를 새 기준으로 다시 만들고 싶을 때
+
+이미 적재된 상태라면 ingest를 다시 돌릴 필요는 없습니다.
+현재 ingest는 기존 메타데이터를 보고 이미 적재된 PDF를 파싱 없이 skip합니다.
 
 ## Notes
 - `POST /verify`는 `LangGraph` 그래프(`backend/app/pipeline/verification_graph.py`)로 실행되어 결과를 즉시 반환합니다. 공유 상태 스키마는 `backend/app/pipeline/state.py`입니다.
 - Scientific / Industrial / Regulatory 에이전트 구현은 `backend/app/agents/` 하위이며, 파이프라인과 함께 자주 수정되는 영역입니다.
 - 외부 API·키가 없으면 일부 에이전트는 Mock 또는 축약 동작을 할 수 있습니다.
+- 기본 기동 서비스는 `backend`, `frontend`이고, `ingest`는 수동 1회 적재용 프로필 서비스입니다.
+- 문서 적재 결과는 `data/chroma/` 로컬 디렉토리에 저장됩니다.
+- 팀원이 `git pull`만 받는 경우 벡터 데이터는 자동 공유되지 않으므로, 각자 `data/chroma/`를 보유하지 않았다면 한 번은 ingest를 실행해야 합니다.
+- 동일 문서로 ingest를 다시 실행해도 청크 id 기준으로 중복 적재는 skip됩니다.

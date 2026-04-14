@@ -30,8 +30,12 @@ class Settings(BaseSettings):
     DART_API_KEY: str = ''
     DART_DOCS_DIR: str = './data/dart'
 
-    CHROMA_HOST: str = 'chroma'
-    CHROMA_PORT: int = 8000
+    CHROMA_PERSIST_DIR: str = './data/chroma'
+    CHROMA_COLLECTION: str = 'dac_docs'
+    EMBEDDING_MODEL: str = 'BAAI/bge-m3'
+    EMBED_MAX_LENGTH: int = 512
+    TABLE_SUMMARY_ENABLED: bool = False
+    REPORT_OUTPUT_DIR: str = './reports'
 
     CORS_ORIGINS: str = 'http://localhost:5173'
 

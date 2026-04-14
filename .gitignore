@@ -4,6 +4,12 @@ __pycache__/
 .venv/
 .env
 .DS_Store
+.cache/
+backend/reports/
+data/dart/**
+!data/dart/
+!data/dart/README.md
+!data/chroma/
 
 # Frontend (Vite/Vue)
 frontend/node_modules/

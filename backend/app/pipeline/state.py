@@ -26,5 +26,9 @@ class VerificationState(TypedDict, total=False):
     regulatory: RegulatoryAgentOutput
     # Aggregation outputs
     cross_validation: CrossValidatorOutput
+    company_context: str
+    company_context_section6: str
+    pdf_path: str
+    citation_metadata: list  # list[CitationMeta], schemas/report.py 참고
     report_markdown: str
     result: VerificationResponse

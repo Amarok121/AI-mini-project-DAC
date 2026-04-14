@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-
-from langchain_openai import ChatOpenAI
+from typing import Any
 
 from app.core.config import settings
 
@@ -29,8 +28,10 @@ _patch_langchain_debug_compat()
 
 
 @lru_cache(maxsize=4)
-def get_chat_model(*, temperature: float, json_mode: bool) -> ChatOpenAI:
+def get_chat_model(*, temperature: float, json_mode: bool) -> Any:
     """temperature·JSON 모드 조합별로 캐시된 모델."""
+    from langchain_openai import ChatOpenAI
+
     kw: dict = {
         "api_key": (settings.OPENAI_API_KEY or None),
         "model": settings.OPENAI_MODEL,
