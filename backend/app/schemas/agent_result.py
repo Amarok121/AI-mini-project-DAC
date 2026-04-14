@@ -31,17 +31,17 @@ class PaperResult(BaseModel):
     title: str
     authors: list[str] = []
     year: int = 0
-    journal: str = ''
+    journal: str = Field(default='', exclude=True)
     url: str = ''
-    pdf_url: str = ''
+    pdf_url: str = Field(default='', exclude=True)
     grade_score: float = 0.0
     grade_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
-    citation_count: int = 0
-    abstract: str = ''
-    semantic_scholar_id: str = ''
-    openalex_id: str = ''
-    arxiv_id: str = ''
-    doi: str = ''
+    citation_count: int = Field(default=0, exclude=True)
+    abstract: str = Field(default='', exclude=True)
+    semantic_scholar_id: str = Field(default='', exclude=True)
+    openalex_id: str = Field(default='', exclude=True)
+    arxiv_id: str = Field(default='', exclude=True)
+    doi: str = Field(default='', exclude=True)
     summary: str = ''
     excerpt: str = ''
     key_point: str = ''
