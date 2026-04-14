@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     CHROMA_PORT: int = 8000
     CHROMA_COLLECTION: str = 'dac_docs'
     EMBEDDING_MODEL: str = 'BAAI/bge-m3'
+    REPORT_OUTPUT_DIR: str = './reports'
 
     CORS_ORIGINS: str = 'http://localhost:5173'
 

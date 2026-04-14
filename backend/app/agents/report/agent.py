@@ -1,11 +1,562 @@
-from app.schemas.claim import Claim
+from __future__ import annotations
+
+import asyncio
+from datetime import date
+import logging
+
+from openai import AsyncOpenAI
+
+from app.agents.report.pdf_export import export_pdf
+from app.core.config import settings
 from app.schemas.agent_result import (
-    ScientificAgentOutput,
+    CitationMetadataItem,
+    CrossValidatorOutput,
     IndustrialAgentOutput,
     RegulatoryAgentOutput,
-    CrossValidatorOutput,
+    ReportInput,
+    ReportOutput,
+    ScientificAgentOutput,
+    SectionDraft,
+    SourceItem,
 )
-from .roadmap_generator import build_adoption_checklist
+from app.schemas.claim import Claim, ClaimJudgement
+
+
+logger = logging.getLogger(__name__)
+
+MODEL_NAME = 'gpt-4o-mini'
+TEMPERATURE = 0.3
+MAX_TOKENS = 4096
+
+_COMMON_SYSTEM_RULES = """당신은 기술 검증 보고서를 작성하는 분석 에이전트다.
+- 마크다운 형식으로만 출력한다.
+- 최상위 제목(#, ##) 사용을 금지하고 ### 이하만 사용한다.
+- 표와 목록을 적극 활용한다.
+- 모든 사실 기반 서술은 제공된 입력 데이터와 출처에 근거해야 한다.
+- 추측 표현에는 반드시 "(추정)"을 명시한다.
+- 출력 언어는 한국어다.
+- 각 사실 기반 문장 끝에는 제공된 sources 목록의 ref_id만 사용해 [^ref_id] 형식 인용 번호를 삽입한다.
+- 제공되지 않은 사실을 단정하지 않는다.
+"""
+
+_SECTION_TITLES = {
+    'section1': '검증 개요',
+    'section2': '과학적 근거 분석',
+    'section3': '산업화 현황 분석',
+    'section4': '규제 및 법률 검토',
+    'section5': '최종 평가표 및 해설',
+    'section6': '기술도입 로드맵 및 체크리스트',
+    'section7': '참고문헌',
+}
+
+
+def _get_client() -> AsyncOpenAI | None:
+    if not settings.OPENAI_API_KEY:
+        return None
+    return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+
+def _claim_label(claim: Claim) -> str:
+    return claim.claim_text or claim.claim or '주장 정보 없음'
+
+
+def _tech_label(claims: list[Claim]) -> str:
+    if not claims:
+        return '기술'
+    first = claims[0]
+    return first.technology or first.claim_text or first.claim or '기술'
+
+
+def _safe_join(items: list[str]) -> str:
+    return ', '.join([item for item in items if item]) if items else ''
+
+
+def _build_apa_citation(source: SourceItem) -> str:
+    if source.apa_citation:
+        return source.apa_citation
+
+    year = str(source.year) if source.year else 'n.d.'
+    title = source.title or '제목 미상'
+    publisher = source.publisher or '발행처 미상'
+    url = source.url or ''
+
+    if source.authors:
+        author_text = _safe_join(source.authors)
+        citation = f'{author_text}. ({year}). {title}. {publisher}.'
+    else:
+        citation = f'{title}. ({year}). {publisher}.'
+
+    return f'{citation} {url}'.strip()
+
+
+def _normalize_sources(report_input: ReportInput) -> list[SourceItem]:
+    normalized: list[SourceItem] = []
+    seen: set[str] = set()
+
+    for result in [
+        report_input.scientific,
+        report_input.industrial,
+        report_input.regulatory,
+        report_input.cross_validation,
+    ]:
+        for source in getattr(result, 'sources', []):
+            key = f'{source.title}|{source.url}|{source.snippet}'
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(source)
+
+    assigned: list[SourceItem] = []
+    for index, source in enumerate(normalized, start=1):
+        assigned.append(
+            source.model_copy(
+                update={
+                    'ref_id': str(index),
+                    'apa_citation': _build_apa_citation(source),
+                }
+            )
+        )
+    return assigned
+
+
+def _sources_for_refs(all_sources: list[SourceItem], selected_sources: list[SourceItem]) -> list[SourceItem]:
+    selected_keys = {f'{source.title}|{source.url}|{source.snippet}' for source in selected_sources}
+    return [
+        source
+        for source in all_sources
+        if f'{source.title}|{source.url}|{source.snippet}' in selected_keys
+    ]
+
+
+def _build_source_index_block(sources: list[SourceItem]) -> str:
+    if not sources:
+        return '- 제공된 출처 없음'
+    return '\n'.join([f'- [{source.ref_id}: {source.title or "제목 미상"}]' for source in sources])
+
+
+def _format_source_line(source: SourceItem) -> str:
+    title = source.title or '제목 미상'
+    authors = _safe_join(source.authors) or '저자 미상'
+    year = str(source.year) if source.year else '연도 미상'
+    publisher = source.publisher or '발행처 미상'
+    url = source.url or 'URL 없음'
+    snippet = source.snippet or '스니펫 없음'
+    return (
+        f"- ref_id={source.ref_id or '미지정'} | 유형={source.source_type} | 제목={title} | "
+        f"저자={authors} | 연도={year} | 발행처={publisher} | URL={url} | 스니펫={snippet}"
+    )
+
+
+def _format_sources_block(sources: list[SourceItem]) -> str:
+    if not sources:
+        return '- 출처 없음'
+    return '\n'.join(_format_source_line(source) for source in sources)
+
+
+def _build_claims_table(claims: list[Claim]) -> str:
+    rows = ['| claim_id | 주장 | 카테고리 |', '| --- | --- | --- |']
+    for claim in claims:
+        rows.append(
+            f"| {claim.claim_id or '-'} | {_claim_label(claim)} | {claim.category or '-'} |"
+        )
+    return '\n'.join(rows)
+
+
+def _build_metric_table(report_input: ReportInput) -> str:
+    scientific = report_input.scientific
+    industrial = report_input.industrial
+    regulatory = report_input.regulatory
+    rows = [
+        '| 지표 | 현재 수준 | 범위 | 판단 근거 요약 |',
+        '| --- | --- | --- | --- |',
+        f"| TRL | {scientific.trl_estimate or '-'} | 1~9 | {scientific.trl_rationale or scientific.summary or '-'} |",
+        f"| MRL | {industrial.mrl_estimate or '-'} | 1~10 | {industrial.mrl_rationale or industrial.summary or '-'} |",
+        f"| CRI | {regulatory.cri_estimate or '-'} | 1~6 | {regulatory.cri_rationale or regulatory.summary or '-'} |",
+    ]
+    return '\n'.join(rows)
+
+
+def _build_claim_judgement_table(judgements: list[ClaimJudgement], claims: list[Claim]) -> str:
+    claim_map = {claim.claim_id: claim for claim in claims}
+    rows = ['| 주장 | 판정 | 종합 신뢰도 | 근거 요약 |', '| --- | --- | --- | --- |']
+    for judgement in judgements:
+        claim = claim_map.get(judgement.claim_id)
+        claim_text = _claim_label(claim) if claim is not None else judgement.claim_id or '주장 정보 없음'
+        rows.append(
+            f"| {claim_text} | {judgement.judgement or '-'} | "
+            f"{judgement.overall_confidence or '-'} | {judgement.rationale_summary or '-'} |"
+        )
+    return '\n'.join(rows)
+
+
+def _fallback_section(section_id: str, error_message: str) -> SectionDraft:
+    title = _SECTION_TITLES[section_id]
+    return SectionDraft(
+        section_id=section_id,
+        title=title,
+        markdown=f'### {title}\n\n*해당 섹션 생성 중 오류가 발생했습니다.*',
+        has_error=True,
+        error=error_message,
+    )
+
+
+async def _call_llm(section_title: str, system_prompt: str, user_prompt: str) -> str:
+    client = _get_client()
+    if client is None:
+        raise RuntimeError('OPENAI_API_KEY is not configured')
+
+    response = await client.responses.create(
+        model=MODEL_NAME,
+        temperature=TEMPERATURE,
+        max_output_tokens=MAX_TOKENS,
+        input=[
+            {'role': 'system', 'content': [{'type': 'input_text', 'text': system_prompt}]},
+            {'role': 'user', 'content': [{'type': 'input_text', 'text': user_prompt}]},
+        ],
+    )
+    content = (response.output_text or '').strip()
+    if not content:
+        raise RuntimeError(f'{section_title} LLM output was empty')
+    return content
+
+
+async def _generate_section(
+    section_id: str,
+    system_context: str,
+    user_prompt: str,
+    ref_ids: list[str],
+) -> SectionDraft:
+    title = _SECTION_TITLES[section_id]
+    try:
+        markdown = await _call_llm(title, system_context, user_prompt)
+        return SectionDraft(
+            section_id=section_id,
+            title=title,
+            markdown=markdown,
+            ref_ids=ref_ids,
+            has_error=False,
+            error=None,
+        )
+    except Exception as exc:
+        logger.exception('Failed to generate section %s', section_id)
+        return _fallback_section(section_id, str(exc))
+
+
+def _section_sources_ref_ids(sources: list[SourceItem]) -> list[str]:
+    return [source.ref_id for source in sources if source.ref_id]
+
+
+def _build_section_system_prompt(base_context: str, sources: list[SourceItem]) -> str:
+    return (
+        f"{_COMMON_SYSTEM_RULES}\n"
+        f"{base_context}\n"
+        "해당 섹션에서 사용할 수 있는 sources 목록:\n"
+        f"{_build_source_index_block(sources)}"
+    )
+
+
+def _build_section1_prompts(
+    report_input: ReportInput,
+    company_context: str,
+    all_sources: list[SourceItem],
+) -> tuple[str, str, list[str]]:
+    claims_table = _build_claims_table(report_input.claims)
+    system_prompt = _build_section_system_prompt(
+        f"회사 일반 현황 컨텍스트:\n{company_context or '제공된 회사 컨텍스트 없음'}",
+        all_sources,
+    )
+    user_prompt = f"""섹션 제목은 '### 검증 개요'로 시작하세요.
+회사명: {report_input.company_name}
+검증 대상 기술: {_tech_label(report_input.claims)}
+
+검증 대상 주장 목록 표:
+{claims_table}
+
+사용 가능한 출처 상세:
+{_format_sources_block(all_sources)}
+
+작성 요구:
+- 회사 소개와 본 검증의 목적을 짧게 정리한다.
+- 검증 대상 주장 목록을 표를 활용해 설명한다.
+- 회사 일반 현황 컨텍스트가 없으면 그 한계를 드러내되 보고서 톤은 유지한다.
+"""
+    return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+
+
+def _build_section2_prompts(
+    report_input: ReportInput,
+    section_sources: list[SourceItem],
+) -> tuple[str, str, list[str]]:
+    scientific = report_input.scientific
+    system_prompt = _build_section_system_prompt('과학적 근거 분석 섹션 작성', section_sources)
+    user_prompt = f"""섹션 제목은 '### 과학적 근거 분석'으로 시작하세요.
+Scientific 요약: {scientific.summary or '-'}
+TRL 추정값: {scientific.trl_estimate or '-'}
+TRL 판단 근거: {scientific.trl_rationale or '-'}
+과학 신뢰도 판정: {report_input.cross_validation.scientific_confidence or '-'}
+
+논문 목록:
+{chr(10).join([f"- {paper.title} ({paper.year}) / {paper.journal} / grade={paper.grade_level}" for paper in scientific.papers]) or '- 논문 정보 없음'}
+
+출처:
+{_format_sources_block(section_sources)}
+
+작성 요구:
+- 과학적 근거 수준을 요약한다.
+- TRL 현재 추정 수준과 그 판단 근거를 분리해 설명한다.
+- cross validation의 과학 신뢰도 판정을 함께 서술한다.
+"""
+    return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+
+
+def _build_section3_prompts(
+    report_input: ReportInput,
+    section_sources: list[SourceItem],
+) -> tuple[str, str, list[str]]:
+    industrial = report_input.industrial
+    system_prompt = _build_section_system_prompt('산업화 현황 분석 섹션 작성', section_sources)
+    user_prompt = f"""섹션 제목은 '### 산업화 현황 분석'으로 시작하세요.
+Industrial 요약: {industrial.summary or '-'}
+MRL 추정값: {industrial.mrl_estimate or '-'}
+MRL 판단 근거: {industrial.mrl_rationale or '-'}
+산업 신뢰도 판정: {report_input.cross_validation.industrial_confidence or '-'}
+
+뉴스 목록:
+{chr(10).join([f"- {news.title} / {news.provider} / {news.published_at} / level={news.craap_level}" for news in industrial.news]) or '- 뉴스 정보 없음'}
+
+특허 목록:
+{chr(10).join([f"- {patent.title} / {patent.applicant} / {patent.application_date} / 상태={patent.status}" for patent in industrial.patents]) or '- 특허 정보 없음'}
+
+출처:
+{_format_sources_block(section_sources)}
+
+작성 요구:
+- 산업화 및 상용화 시그널을 요약한다.
+- MRL 현재 추정 수준과 그 판단 근거를 설명한다.
+- cross validation의 산업 신뢰도 판정을 반영한다.
+"""
+    return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+
+
+def _build_section4_prompts(
+    report_input: ReportInput,
+    section_sources: list[SourceItem],
+) -> tuple[str, str, list[str]]:
+    regulatory = report_input.regulatory
+    system_prompt = _build_section_system_prompt('규제 및 법률 검토 섹션 작성', section_sources)
+    user_prompt = f"""섹션 제목은 '### 규제 및 법률 검토'로 시작하세요.
+Regulatory 요약: {regulatory.summary or '-'}
+규제 판정: {regulatory.verdict or '-'}
+CRI 추정값: {regulatory.cri_estimate or '-'}
+CRI 판단 근거: {regulatory.cri_rationale or '-'}
+규제 신뢰도 판정: {report_input.cross_validation.regulatory_confidence or '-'}
+적용 가능 규정: {_safe_join(regulatory.applicable_regulations) or '-'}
+인센티브: {_safe_join(regulatory.incentives) or '-'}
+리스크: {_safe_join(regulatory.risks) or '-'}
+
+출처:
+{_format_sources_block(section_sources)}
+
+작성 요구:
+- 규제 적용성, 인센티브, 리스크를 구조적으로 정리한다.
+- CRI 현재 추정 수준과 그 판단 근거를 설명한다.
+- cross validation의 규제 신뢰도 판정을 반영한다.
+"""
+    return system_prompt, user_prompt, _section_sources_ref_ids(section_sources)
+
+
+def _build_section5_prompts(
+    report_input: ReportInput,
+    section2: SectionDraft,
+    section3: SectionDraft,
+    section4: SectionDraft,
+    all_sources: list[SourceItem],
+) -> tuple[str, str, list[str]]:
+    system_prompt = _build_section_system_prompt('최종 평가표 및 해설 섹션 작성', all_sources)
+    metric_table = _build_metric_table(report_input)
+    judgement_table = _build_claim_judgement_table(report_input.cross_validation.results, report_input.claims)
+    user_prompt = f"""섹션 제목은 '### 최종 평가표 및 해설'로 시작하세요.
+이전 섹션 초안 참고:
+
+[section2]
+{section2.markdown}
+
+[section3]
+{section3.markdown}
+
+[section4]
+{section4.markdown}
+
+반드시 아래 표를 포함하세요.
+지표 평가표:
+{metric_table}
+
+주장별 판정 표:
+{judgement_table}
+
+종합 판정: {report_input.cross_validation.overall_verdict or '-'}
+종합 신뢰도: {report_input.cross_validation.overall_confidence or '-'}
+상충 정보: {_safe_join(report_input.cross_validation.conflicts) or '-'}
+
+출처:
+{_format_sources_block(all_sources)}
+
+작성 요구:
+- 위 두 표를 포함한다.
+- 표 아래에 각 지표별 해설을 서술한다.
+- 주장별 판정 결과를 종합해 기술도입 가능성을 평가한다.
+"""
+    return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+
+
+def _build_section6_prompts(
+    report_input: ReportInput,
+    section5: SectionDraft,
+    company_context_section6: str,
+    all_sources: list[SourceItem],
+) -> tuple[str, str, list[str]]:
+    system_prompt = _build_section_system_prompt(
+        f"기술도입 로드맵용 회사 컨텍스트:\n{company_context_section6 or '제공된 section6 전용 컨텍스트 없음'}",
+        all_sources,
+    )
+    user_prompt = f"""섹션 제목은 '### 기술도입 로드맵 및 체크리스트'로 시작하세요.
+회사명: {report_input.company_name}
+검증 대상 기술: {_tech_label(report_input.claims)}
+
+이전 섹션 초안:
+{section5.markdown}
+
+TRL: {report_input.scientific.trl_estimate or '-'}
+MRL: {report_input.industrial.mrl_estimate or '-'}
+CRI: {report_input.regulatory.cri_estimate or '-'}
+
+출처:
+{_format_sources_block(all_sources)}
+
+작성 요구:
+- SK이노베이션의 단계별 기술도입 로드맵을 구체적으로 작성한다.
+- 각 단계에서 필요한 인프라, 실증, 공급망, 규제 대응을 현실적으로 정리한다.
+- 도입 체크리스트를 마크다운 체크박스(- [ ]) 형식으로 제공한다.
+- 컨텍스트가 불충분한 부분은 "(추정)"을 표시한다.
+"""
+    return system_prompt, user_prompt, _section_sources_ref_ids(all_sources)
+
+
+def _build_section7(all_sources: list[SourceItem]) -> SectionDraft:
+    lines = ['### 참고문헌', '']
+    if not all_sources:
+        lines.append('- 참고문헌 정보가 제공되지 않았습니다.')
+    else:
+        for source in all_sources:
+            lines.append(f'- [^{source.ref_id}] {source.apa_citation}')
+
+    return SectionDraft(
+        section_id='section7',
+        title=_SECTION_TITLES['section7'],
+        markdown='\n'.join(lines),
+        ref_ids=_section_sources_ref_ids(all_sources),
+        has_error=False,
+        error=None,
+    )
+
+
+def _build_toc(section_drafts: list[SectionDraft]) -> str:
+    return '\n'.join([f"- {draft.title}" for draft in section_drafts])
+
+
+def _merge_markdown(report_input: ReportInput, section_drafts: list[SectionDraft]) -> str:
+    tech_name = _tech_label(report_input.claims)
+    body = '\n\n'.join([draft.markdown for draft in section_drafts])
+    return (
+        f"# {tech_name} 기술 검증 보고서\n\n"
+        f"작성일: {date.today().isoformat()}\n\n"
+        f"## 목차\n{_build_toc(section_drafts)}\n\n"
+        f"{body}\n\n---\n"
+        "*본 보고서는 AI 기반 분석 도구를 활용하여 생성되었습니다.\n"
+        "최종 의사결정 전 전문가 검토를 권장합니다.*"
+    )
+
+
+def _build_citation_metadata(all_sources: list[SourceItem]) -> list[CitationMetadataItem]:
+    return [
+        CitationMetadataItem(
+            ref_id=source.ref_id,
+            apa_citation=source.apa_citation,
+            snippet=source.snippet,
+            url=source.url,
+            source_type=source.source_type,
+        )
+        for source in all_sources
+    ]
+
+
+async def generate_report(
+    report_input: ReportInput,
+    company_context: str = '',
+    company_context_section6: str = '',
+) -> ReportOutput:
+    try:
+        all_sources = _normalize_sources(report_input)
+        scientific_sources = _sources_for_refs(all_sources, report_input.scientific.sources)
+        industrial_sources = _sources_for_refs(all_sources, report_input.industrial.sources)
+        regulatory_sources = _sources_for_refs(all_sources, report_input.regulatory.sources)
+
+        section1_task = _generate_section(
+            'section1',
+            *_build_section1_prompts(report_input, company_context, all_sources),
+        )
+        section2_task = _generate_section(
+            'section2',
+            *_build_section2_prompts(report_input, scientific_sources),
+        )
+        section3_task = _generate_section(
+            'section3',
+            *_build_section3_prompts(report_input, industrial_sources),
+        )
+        section4_task = _generate_section(
+            'section4',
+            *_build_section4_prompts(report_input, regulatory_sources),
+        )
+
+        section1, section2, section3, section4 = await asyncio.gather(
+            section1_task,
+            section2_task,
+            section3_task,
+            section4_task,
+        )
+
+        section5 = await _generate_section(
+            'section5',
+            *_build_section5_prompts(report_input, section2, section3, section4, all_sources),
+        )
+        section6 = await _generate_section(
+            'section6',
+            *_build_section6_prompts(report_input, section5, company_context_section6, all_sources),
+        )
+        section7 = _build_section7(all_sources)
+
+        section_drafts = [section1, section2, section3, section4, section5, section6, section7]
+        merged_markdown = _merge_markdown(report_input, section_drafts)
+        pdf_path = export_pdf(merged_markdown)
+
+        return ReportOutput(
+            markdown=merged_markdown,
+            report_markdown=merged_markdown,
+            section_drafts=section_drafts,
+            citation_metadata=_build_citation_metadata(all_sources),
+            pdf_path=pdf_path,
+            error=None,
+        )
+    except Exception as exc:
+        logger.exception('Failed to generate full report output')
+        return ReportOutput(
+            markdown='',
+            report_markdown='',
+            section_drafts=[],
+            citation_metadata=[],
+            pdf_path=None,
+            error=str(exc),
+        )
 
 
 async def run(
@@ -15,19 +566,13 @@ async def run(
     regulatory: RegulatoryAgentOutput,
     cross_validation: CrossValidatorOutput,
 ) -> str:
-    # TODO: 템플릿 기반 + 근거 인라인 인용 강화
-    tech = claims[0].technology if claims else '기술'
-    checklist = '\n'.join([f'- {item}' for item in build_adoption_checklist()])
-    return f'''# 기술 검증 보고서: {tech}
-
-## 1. Executive Summary
-- 최종 판단: **{cross_validation.overall_verdict}**
-
-## 2. Agent 요약
-- Scientific: {scientific.overall_grade} ({scientific.trl_estimate})
-- Industrial: {industrial.overall_level} ({industrial.mrl_estimate})
-- Regulatory: {regulatory.verdict} ({regulatory.confidence})
-
-## 3. 도입 체크리스트
-{checklist}
-'''
+    report_input = ReportInput(
+        company_name='SK이노베이션',
+        claims=claims,
+        scientific=scientific,
+        industrial=industrial,
+        regulatory=regulatory,
+        cross_validation=cross_validation,
+    )
+    report_output = await generate_report(report_input)
+    return report_output.report_markdown

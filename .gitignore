@@ -4,3 +4,7 @@ __pycache__/
 .venv/
 .env
 .DS_Store
+backend/reports/
+data/dart/**
+!data/dart/
+!data/dart/README.md
