@@ -18,6 +18,22 @@ cp .env.example .env
 
 PDF는 재귀 탐색되므로 `data/dart/{회사명}/문서.pdf` 구조를 그대로 사용해도 됩니다.
 
+### Demo PDFs
+현재 데모용으로는 `data/dart/SK_innovaion/` 아래 PDF 4개를 사용합니다.
+
+- `[SK이노베이션]사업보고서(2026.03.16)_사업의 내용.pdf`
+  - 회사의 사업 구조, 주요 제품/기술, 생산 및 투자 방향을 파악하기 위한 핵심 사업 개요 자료
+- `제19기 영업보고서.pdf`
+  - 최근 경영 현황, 주요 사업 성과, 운영 흐름을 빠르게 확인하기 위한 요약형 공시 자료
+- `SK On Green Financing Framework 2025.pdf`
+  - 배터리/친환경 투자, 지속가능금융, 녹색 프로젝트 기준 등 ESG·전환 투자 맥락을 보강하는 자료
+- `SKI_제19기 결산공고.pdf`
+  - 재무 상태와 손익 흐름을 확인해 기술 도입의 사업성/투자 여력을 보조적으로 판단하기 위한 자료
+
+이 파일들은 데모에서 SK이노베이션의 사업 맥락을 RAG로 보강하기 위한 용도이며,
+기술 주장 자체의 과학적 진위를 직접 증명하는 자료라기보다는
+`회사 현황 / 설비 / 투자 / 재무 / 사업 포트폴리오` 문맥을 제공하는 역할에 가깝습니다.
+
 ## Run backend
 ```bash
 cd backend
@@ -93,6 +109,18 @@ curl http://localhost:8000/health
 - Chroma 벡터 데이터는 `data/chroma/`에 저장됩니다.
 - 같은 머신에서는 이 디렉토리가 유지되는 한 모델/벡터 데이터를 계속 재사용할 수 있습니다.
 - HuggingFace 모델 캐시는 `./.cache/huggingface`에 저장되며, backend와 ingest가 함께 사용합니다.
+
+### Chroma files overview
+`data/chroma/` 아래에는 Chroma 로컬 DB가 여러 파일로 나뉘어 저장됩니다.
+
+- `chroma.sqlite3`: 컬렉션/메타데이터/문서 인덱스 정보를 담는 SQLite 파일
+- `data_level0.bin`: 벡터 인덱스의 실제 데이터가 저장되는 바이너리 파일
+- `length.bin`: 인덱스 길이 및 엔트리 크기 관련 메타 정보를 담는 파일
+- `header.bin`, `link_lists.bin`: HNSW 기반 검색 인덱스의 헤더/링크 구조를 저장하는 파일
+
+참고:
+- `backend/data/`는 팀 공용 DB 기준 경로가 아니라 로컬 실행 중 생길 수 있는 보조/legacy 산출물 경로입니다.
+- 팀원이 함께 재사용해야 하는 Chroma 데이터는 루트의 `data/chroma/` 기준으로 보면 됩니다.
 
 ## When to run ingest again
 아래 경우에만 `docker compose --profile ingest run --rm ingest`를 다시 실행하면 됩니다.
