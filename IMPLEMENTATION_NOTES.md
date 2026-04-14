@@ -138,6 +138,7 @@ cp .env.example .env
 - **`PaperResult.pdf_url`**: Semantic Scholar `openAccessPdf.url`, arXiv는 `https://arxiv.org/pdf/{id}.pdf` 규칙.
 - **`RegulatoryAgentOutput.documents_for_validation`**: 포털 `PortalDocument`에서 법령명·대표 URL·PDF(가능 시: EU CELEX→EUR-Lex PDF, US Federal Register `pdf_url`) 참조.
 - **`CrossValidatorOutput`**: `papers_for_validation`, `regulations_for_validation` — 외부 파서/평가 모듈이 바이너리 대신 URL로 받도록 정렬(본 저장소는 PDF 파싱 안 함).
+- **PDF URL 동작 확인**: `backend/scripts/check_pdf_urls.py` — HEAD(또는 소량 GET)로 `application/pdf` 또는 `%PDF` 시그니처 검사. 인자 없이 실행 시 arXiv 샘플 URL로 스모크.
 
 ### 2026-04-14 (추가) — Claim 강화 (few-shot·검증·스키마)
 
