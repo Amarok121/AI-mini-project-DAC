@@ -1,0 +1,413 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-04-14T08:17:59.468928+00:00",
+    "request": {
+      "input_type": "text",
+      "content": "DAC 직접공기포집 기술로 연 1만 톤 규모 시범을 검토 중이다. 국내 탄소중립기본법·EU CBAM과의 정합성, IRA 45Q 수혜 가능성을 알고 싶다."
+    }
+  },
+  "data": {
+    "report_markdown": "# 기술 검증·도입 가능성 보고서: DAC\n\n## 1. Executive Summary\n- **초점:** 기술도입 가능성·장기 경제성 관점 (TRL/MRL/CRI는 교차검증·향후 보강).\n- 최종 판단: **조건부 가능**\n\n## 2. Agent 요약\n- Scientific: LOW — GRADE 스켈레톤 가중평균(상위3): 0.4423\n- Industrial: LOW (MRL 1~3)\n- Regulatory: 불명확 (MED)\n\n## 3. 근거·출처 (자동 수집)\n\n### 3.1 논문·식별자 (Scientific)\n\n- 1. **Technologies to Capture CO$_2$ directly from Ambient Air** (2022)\n  - 저널·출처: arXiv (preprint)\n  - [링크](https://arxiv.org/abs/2211.00791v1) · arXiv: `2211.00791v1`\n\n- 2. **Automated deep reinforcement learning for real-time scheduling strategy of multi-energy system integrated with post-carbon and direct-air carbon captured system** (2023)\n  - 저널·출처: Applied Energy, Volume 333, 1 March 2023, 120633\n  - [링크](https://arxiv.org/abs/2301.07768v1) · DOI: `10.1016/j.apenergy.2022.120633` · arXiv: `2301.07768v1`\n\n- 3. **Exploration of Quantum Computing in Materials Discovery for Direct Air Capture Applications** (2024)\n  - 저널·출처: arXiv (preprint)\n  - [링크](https://arxiv.org/abs/2404.13122v3) · DOI: `10.1063/5.0219500` · arXiv: `2404.13122v3`\n\n- 4. **The Open DAC 2023 Dataset and Challenges for Sorbent Discovery in Direct Air Capture** (2023)\n  - 저널·출처: arXiv (preprint)\n  - [링크](https://arxiv.org/abs/2311.00341v2) · arXiv: `2311.00341v2`\n\n- 5. **Design Optimization and Global Impact Assessment of Solar-Thermal Direct Air Carbon Capture** (2025)\n  - 저널·출처: arXiv (preprint)\n  - [링크](https://arxiv.org/abs/2510.20135v1) · arXiv: `2510.20135v1`\n\n- 6. **Enhancing Profit and CO2 Mitigation: Commercial Direct Air Capture Design and Operation with Power Market Volatility** (2025)\n  - 저널·출처: arXiv (preprint)\n  - [링크](https://arxiv.org/abs/2510.12949v1) · arXiv: `2510.12949v1`\n\n- 7. **The Long-Term Impact of Direct Capture Approaches to Carbon Dioxide Removal** (2025)\n  - 저널·출처: arXiv (preprint)\n  - [링크](https://arxiv.org/abs/2510.20593v1) · arXiv: `2510.20593v1`\n\n### 3.2 산업·뉴스 (Industrial)\n\n- **네이버 뉴스 검색 실패: DAC**\n\n## 4. 도입 체크리스트 (초안)\n- 파일럿 CAPEX/OPEX·회수기간(Payback) 가정 검증\n- 규제·인센티브(예: IRA 45Q, 국내 탄소 정책) 법무 검토\n- CCU·탄소 배출권·에너지 단가 시나리오(장기) 민감도\n- 12개월 내 KPI 정의\n\n## 5. 규제·정책 환경 (요약)\n\n- 적용성 판정: **불명확** (신뢰도 지표: MED — 규제 ‘출처 신뢰’가 아닌 **해석 불확실성** 표시)\n\n- 인센티브·지원 (에이전트 요약):\n  - IRA 45Q tax credit may apply if DAC systems meet specific criteria.\n\n- 리스크:\n  - High initial investment costs.\n  - Technological reliability and scalability concerns.\n\n- 참고 링크:\n  - https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr\n  - https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_en\n  - https://ec.europa.eu/taxation_customs/taxation-1/tax-co-operation-and-control/general-overview/enhanced-administrative-cooperation-field-direct-taxation_en\n  - https://www.federalregister.gov/documents/2024/11/01/2024-25499/notice-of-intent-to-prepare-an-environmental-impact-statement-for-the-project-cypress-direct-air\n  - https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Glossary%3ADAC_countries\n  - https://www.energy.gov/nepa/articles/cx-022432-demonstration-continuous-motion-direct-air-capture-dac-system\n\n- **판단 근거 요약 (에이전트):**\n\nThe claims regarding DAC's alignment with existing regulations and potential incentives are not fully substantiated by the available evidence, leading to uncertainty about their applicability.\n\n- 법령·정책명 추출 후보 (2단계):\n  - Infrastructure and Investment in Jobs Act\n  - Bipartisan Infrastructure Law\n  - Council Directive 2011/16/EU\n  - Council Directive (EU) 2021/514\n  - Council Directive (EU) 2025/872\n\n- 파이프라인 메모:\n  - [?] 'Infrastructure and Investment in Jobs Act': 지역 분류 불명 — 스킵\n  - [?] 'Bipartisan Infrastructure Law': 지역 분류 불명 — 스킵\n  - [EU] 'Council Directive 2011/16/EU': EUR-Lex 스니펫 폴백\n  - [EU] 'Council Directive (EU) 2021/514': EUR-Lex 스니펫 폴백\n  - [EU] 'Council Directive (EU) 2025/872': EUR-Lex 스니펫 폴백\n\n",
+    "claims": [
+      {
+        "technology": "DAC",
+        "claim": "연 1만 톤 규모 시범을 검토 중이다",
+        "application": "국내",
+        "type": "규모",
+        "status": "목표"
+      },
+      {
+        "technology": "DAC",
+        "claim": "탄소중립기본법·EU CBAM과의 정합성을 알고 싶다",
+        "application": "",
+        "type": "규제",
+        "status": "목표"
+      },
+      {
+        "technology": "DAC",
+        "claim": "IRA 45Q 수혜 가능성을 알고 싶다",
+        "application": "",
+        "type": "규제",
+        "status": "목표"
+      }
+    ],
+    "scientific": {
+      "papers": [
+        {
+          "title": "Technologies to Capture CO$_2$ directly from Ambient Air",
+          "authors": [
+            "Gahyun Annie Lee",
+            "Xiaoyang Shi",
+            "Ah-Hyung Alissa Park"
+          ],
+          "year": 2022,
+          "url": "https://arxiv.org/abs/2211.00791v1",
+          "grade_score": 0.491,
+          "grade_level": "LOW",
+          "summary": "This review discusses the current state of Direct Air Capture (DAC) technology as a means to achieve negative emissions and mitigate climate change. It highlights advancements in surface chemistry, material synthesis, and engineering design that may enhance the deployment of DAC technologies. The findings suggest that new generations of DAC technologies could significantly impact large-scale carbon capture efforts. However, the abstract does not explicitly mention specific limitations or challenges faced by these technologies.",
+          "excerpt": "The review summarizes the present Direct Air Capture (DAC) technology that contribute to Negative Emissions.",
+          "key_point": "Advancements in DAC technology could enhance carbon capture efforts.",
+          "conditions": [],
+          "limitations": [],
+          "reason": "The abstract provides a broad overview without specific quantitative claims or detailed limitations."
+        },
+        {
+          "title": "Automated deep reinforcement learning for real-time scheduling strategy of multi-energy system integrated with post-carbon and direct-air carbon captured system",
+          "authors": [
+            "Tobi Michael Alabi",
+            "Nathan P. Lawrence",
+            "Lin Lu",
+            "Zaiyue Yang",
+            "R. Bhushan Gopaluni"
+          ],
+          "year": 2023,
+          "url": "https://arxiv.org/abs/2301.07768v1",
+          "grade_score": 0.42,
+          "grade_level": "LOW",
+          "summary": "This study proposes a novel deep reinforcement learning (DRL) agent for optimizing the scheduling of a multi-energy system integrated with carbon dioxide removal technology (CDRT), including DAC. The research evaluates various configurations using real-time data from a district in Arizona, demonstrating that the optimized DRL agent can effectively manage energy demands. The findings indicate improved performance over traditional algorithms, but the abstract does not detail specific limitations or challenges of the proposed method.",
+          "excerpt": "The simulation results validate that an optimised soft-actor critic (SAC) algorithm outperformed the TD3 algorithm.",
+          "key_point": "Optimized DRL can enhance energy management in DAC systems.",
+          "conditions": [],
+          "limitations": [],
+          "reason": "The abstract focuses on the methodology and results without addressing potential drawbacks or broader implications."
+        },
+        {
+          "title": "Exploration of Quantum Computing in Materials Discovery for Direct Air Capture Applications",
+          "authors": [
+            "Marco Antonio Barroca",
+            "Rodrigo Neumann Barros Ferreira",
+            "Mathias Steiner"
+          ],
+          "year": 2024,
+          "url": "https://arxiv.org/abs/2404.13122v3",
+          "grade_score": 0.416,
+          "grade_level": "LOW",
+          "summary": "This research explores the application of quantum computing to accelerate the discovery of solid sorbents for Direct Air Capture (DAC) of CO2. The study simulates gas adsorption in metal-organic frameworks (MOFs) using quantum algorithms, achieving reasonable accuracy. While the findings suggest potential advancements in sorbent discovery, the abstract does not specify limitations or the practical implications of using quantum computing in this context.",
+          "excerpt": "Quantum computing can potentially accelerate the discovery of solid sorbents for DAC by predicting molecular binding energies.",
+          "key_point": "Quantum computing may enhance the discovery of DAC sorbents.",
+          "conditions": [],
+          "limitations": [],
+          "reason": "The abstract presents a promising approach without discussing feasibility or existing challenges."
+        },
+        {
+          "title": "The Open DAC 2023 Dataset and Challenges for Sorbent Discovery in Direct Air Capture",
+          "authors": [
+            "Anuroop Sriram",
+            "Sihoon Choi",
+            "Xiaohan Yu",
+            "Logan M. Brabson",
+            "Abhishek Das",
+            "Zachary Ulissi",
+            "Matt Uyttendaele",
+            "Andrew J. Medford",
+            "David S. Sholl"
+          ],
+          "year": 2023,
+          "url": "https://arxiv.org/abs/2311.00341v2",
+          "grade_score": 0.416,
+          "grade_level": "LOW",
+          "summary": "This paper introduces the Open DAC 2023 dataset, which contains extensive density functional theory calculations on metal-organic frameworks (MOFs) for Direct Air Capture (DAC). The dataset aims to facilitate the discovery of effective MOF sorbents by addressing the challenges posed by the vast chemical space. The findings highlight the dataset's potential utility beyond DAC applications, but the abstract does not mention specific limitations or challenges in using the dataset.",
+          "excerpt": "ODAC23 is by far the largest dataset of MOF adsorption calculations at the DFT level of accuracy currently available.",
+          "key_point": "The Open DAC 2023 dataset aids in discovering effective MOF sorbents.",
+          "conditions": [],
+          "limitations": [],
+          "reason": "The abstract emphasizes the dataset's size and potential without addressing its limitations or practical challenges."
+        },
+        {
+          "title": "Design Optimization and Global Impact Assessment of Solar-Thermal Direct Air Carbon Capture",
+          "authors": [
+            "Zhiyuan Fan",
+            "Bolun Xu"
+          ],
+          "year": 2025,
+          "url": "https://arxiv.org/abs/2510.20135v1",
+          "grade_score": 0.416,
+          "grade_level": "LOW",
+          "summary": "This study investigates solar-thermal Direct Air Capture (DAC) systems as a scalable solution for carbon dioxide removal. It analyzes the techno-economic performance of these systems, revealing that they can achieve competitive CO2 removal costs and high capacity factors. The findings suggest that solar-thermal DAC is particularly promising in regions with high solar capacity. However, the abstract does not explicitly mention limitations or challenges associated with this technology.",
+          "excerpt": "Results show that solar-thermal DAC can achieve annual capacity factors exceeding 80% and CO2 removal costs as low as 160-200 USD per ton.",
+          "key_point": "Solar-thermal DAC systems may provide a cost-effective solution for CO2 removal.",
+          "conditions": [],
+          "limitations": [],
+          "reason": "The abstract presents optimistic findings without discussing potential barriers to implementation."
+        },
+        {
+          "title": "Enhancing Profit and CO2 Mitigation: Commercial Direct Air Capture Design and Operation with Power Market Volatility",
+          "authors": [
+            "Zhiyuan Fan",
+            "Elizabeth Dentzer",
+            "James Glynn",
+            "David S. Goldberg",
+            "Julio Friedmann",
+            "Bolun Xu"
+          ],
+          "year": 2025,
+          "url": "https://arxiv.org/abs/2510.12949v1",
+          "grade_score": 0.416,
+          "grade_level": "LOW",
+          "summary": "This research evaluates the commercial operation of various Direct Air Capture (DAC) technologies in relation to power market volatility. It models the financial dynamics of DAC operations in different locations, suggesting that strategic operation during low-price periods can enhance cost-efficiency. The findings indicate that ambient conditions impact DAC performance, but the abstract does not specify limitations or broader implications of the study.",
+          "excerpt": "Profit-driven decisions introduce climate-economic trade-offs that might decrease the capacity factor of DAC.",
+          "key_point": "Strategic operation of DAC can leverage power market volatility for cost-efficiency.",
+          "conditions": [],
+          "limitations": [],
+          "reason": "The abstract highlights financial strategies without addressing potential environmental or operational challenges."
+        },
+        {
+          "title": "The Long-Term Impact of Direct Capture Approaches to Carbon Dioxide Removal",
+          "authors": [
+            "Al Jay Lan J. Alamin",
+            "Melquezedec James T. Cruz",
+            "Bryan S. Hernandez",
+            "Eduardo R. Mendoza"
+          ],
+          "year": 2025,
+          "url": "https://arxiv.org/abs/2510.20593v1",
+          "grade_score": 0.416,
+          "grade_level": "LOW",
+          "summary": "This study analyzes the long-term impacts of different carbon dioxide removal (CDR) techniques, focusing on direct ocean capture (DOC) and its comparison to Direct Air Capture (DAC). The research constructs a kinetic system for CDR via DOC, revealing critical conditions for effective carbon reduction. While the findings emphasize the importance of understanding tipping points, the abstract does not explicitly mention limitations or challenges faced by these CDR approaches.",
+          "excerpt": "Our analysis reveals the necessary conditions for the existence of positive steady states.",
+          "key_point": "Understanding tipping points is crucial for effective carbon reduction strategies.",
+          "conditions": [],
+          "limitations": [],
+          "reason": "The abstract discusses theoretical insights without addressing practical limitations or challenges in implementation."
+        }
+      ],
+      "overall_grade": "LOW",
+      "summary": "Semantic Scholar·OpenAlex·arXiv 기준 상위 7편을 선별했습니다. 평균 가중 GRADE 스켈레톤 점수는 상위 3편 기준 약 0.44이며, 자동 휴리스틱이므로 임상·정책 GRADE와 동일하지 않습니다.",
+      "error": null,
+      "grade_breakdown": {
+        "study_design": 0.5833,
+        "bias_risk": 0.45,
+        "consistency_hint": 0.0,
+        "directness": 1.0,
+        "precision_hint": 0.0,
+        "venue_authority": 0.5467,
+        "weighted_total": 0.4423
+      },
+      "search_sources": [
+        "semantic_scholar",
+        "openalex",
+        "arxiv"
+      ]
+    },
+    "industrial": {
+      "news": [
+        {
+          "title": "네이버 뉴스 검색 실패: DAC",
+          "publisher": "",
+          "published_at": "",
+          "url": "",
+          "excerpt": "'Settings' object has no attribute 'NAVER_CLIENT_ID'",
+          "summary": "'Settings' object has no attribute 'NAVER_CLIENT_ID'",
+          "craap_score": 0.1,
+          "craap_level": "LOW",
+          "flags": [],
+          "verdict": "",
+          "reason": "'Settings' object has no attribute 'NAVER_CLIENT_ID'",
+          "evaluation": {
+            "score": 0.0,
+            "grade": "LOW",
+            "breakdown": {
+              "currency": 0.0,
+              "relevance": 0.0,
+              "authority": 0.0,
+              "accuracy": 0.0,
+              "purpose": 0.0
+            },
+            "flags": [],
+            "verdict": "",
+            "reason": ""
+          }
+        }
+      ],
+      "patents": [
+        {
+          "title": "KIPRIS 검색 실패: DAC",
+          "applicant": "fallback",
+          "application_date": "",
+          "status": "출원",
+          "is_core_tech": false,
+          "url": "",
+          "excerpt": "",
+          "summary": "KIPRIS 특허 검색 실패",
+          "key_point": "",
+          "core_score": 0.0,
+          "core_level": "LOW",
+          "flags": [],
+          "verdict": "",
+          "reason": "KIPRIS 특허 검색 실패",
+          "evaluation": {
+            "score": 0.0,
+            "grade": "LOW",
+            "breakdown": {
+              "search_match": 0.0,
+              "legal_status": 0.0,
+              "citation_signal": 0.0,
+              "specificity": 0.0
+            },
+            "flags": [],
+            "verdict": "",
+            "reason": ""
+          }
+        }
+      ],
+      "overall_level": "LOW",
+      "mrl_estimate": "MRL 1~3",
+      "summary": "",
+      "error": null
+    },
+    "regulatory": {
+      "verdict": "불명확",
+      "confidence": "MED",
+      "evidences": [
+        {
+          "title": "Notice of Intent To Prepare an Environmental Impact Statement for the Project Cypress Direct Air Capture (DAC) Hub",
+          "url": "https://www.federalregister.gov/documents/2024/11/01/2024-25499/notice-of-intent-to-prepare-an-environmental-impact-statement-for-the-project-cypress-direct-air",
+          "pdf_url": "",
+          "source": "Federal Register",
+          "published_at": "2024-11-01",
+          "summary": "The DOE's initiative under the Bipartisan Infrastructure Law aims to accelerate the commercialization of Direct Air Capture (DAC) technologies. This includes funding for projects that demonstrate effective CO2 capture and storage, which is crucial for achieving carbon neutrality goals. The program emphasizes overcoming challenges related to cost and infrastructure to facilitate widespread DAC deployment.",
+          "excerpt": "The proposed action would fulfill DOE's goals of accelerating the deployment of these technologies and enabling infrastructure to attract greater investments from the private sector.",
+          "key_point": "Funding for DAC projects is essential for achieving carbon neutrality.",
+          "conditions": [
+            "Projects must demonstrate effective CO2 capture and storage.",
+            "Funding is contingent on meeting specific criteria for DAC Hub projects."
+          ],
+          "limitations": [
+            "Challenges include cost, durability, and existing infrastructure.",
+            "Projects must align with DOE's statutory mandate."
+          ],
+          "flags": [],
+          "reason": "The initiative is part of a broader strategy to enhance DAC technology and infrastructure, which is critical for meeting climate targets."
+        },
+        {
+          "title": "Demonstration of a Continuous-Motion Direct Air Capture (DAC) System",
+          "url": "https://www.energy.gov/nepa/articles/cx-022432-demonstration-continuous-motion-direct-air-capture-dac-system",
+          "pdf_url": "",
+          "source": "Department of Energy",
+          "published_at": "2024-01-01",
+          "summary": "This project focuses on developing a continuous motion DAC system capable of capturing CO2 from the atmosphere with over 95% purity. The successful implementation of such technology could significantly contribute to carbon reduction efforts and provide a model for future DAC systems.",
+          "excerpt": "The objective is to develop a continuous motion Direct Air Capture (DAC) system that will capture CO2 from the air and produce a >95 percent purity CO2 product.",
+          "key_point": "High purity CO2 capture is a goal for DAC technology development.",
+          "conditions": [
+            "System must achieve over 95% CO2 purity.",
+            "Field testing is required to validate performance."
+          ],
+          "limitations": [
+            "Performance metrics must be rigorously tested.",
+            "Commercial viability is still under evaluation."
+          ],
+          "flags": [],
+          "reason": "The development of high-purity DAC systems is essential for effective carbon management and aligns with climate policy objectives."
+        }
+      ],
+      "applicable_regulations": [],
+      "incentives": [
+        "IRA 45Q tax credit may apply if DAC systems meet specific criteria."
+      ],
+      "risks": [
+        "High initial investment costs.",
+        "Technological reliability and scalability concerns."
+      ],
+      "requires_expert_review": true,
+      "source_urls": [
+        "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+        "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_en",
+        "https://ec.europa.eu/taxation_customs/taxation-1/tax-co-operation-and-control/general-overview/enhanced-administrative-cooperation-field-direct-taxation_en",
+        "https://www.federalregister.gov/documents/2024/11/01/2024-25499/notice-of-intent-to-prepare-an-environmental-impact-statement-for-the-project-cypress-direct-air",
+        "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Glossary%3ADAC_countries",
+        "https://www.energy.gov/nepa/articles/cx-022432-demonstration-continuous-motion-direct-air-capture-dac-system"
+      ],
+      "evidence_summary": "수집된 근거(정부·공공 포털/공식 문서 텍스트 일부, 공식 도메인 링크/스니펫)를 바탕으로 적용성을 보수적으로 평가했다. 현재 판정은 '불명확'이며 신뢰도는 MED로, 원문 조문/공식 가이드가 충분히 확보되지 않으면 규제 적용 여부를 단정할 수 없다는 점을 전제로 한다. 인센티브 측면에서는 IRA 45Q tax credit may apply if DAC systems meet specific criteria.가 언급되었으나, 적용 요건(규모·연간 톤수·보고/인증 절차 등)은 추가 확인이 필요하다. 리스크 측면에서는 High initial investment costs.; Technological reliability and scalability concerns.가 남아 있으며, 도입·신고·세액공제 가능성은 법무/규제 전문가 검토가 필요하다.",
+      "error": null,
+      "reason": "The claims regarding DAC's alignment with existing regulations and potential incentives are not fully substantiated by the available evidence, leading to uncertainty about their applicability.",
+      "extracted_law_candidates": [
+        "Infrastructure and Investment in Jobs Act",
+        "Bipartisan Infrastructure Law",
+        "Council Directive 2011/16/EU",
+        "Council Directive (EU) 2021/514",
+        "Council Directive (EU) 2025/872"
+      ],
+      "pipeline_notes": [
+        "[?] 'Infrastructure and Investment in Jobs Act': 지역 분류 불명 — 스킵",
+        "[?] 'Bipartisan Infrastructure Law': 지역 분류 불명 — 스킵",
+        "[EU] 'Council Directive 2011/16/EU': EUR-Lex 스니펫 폴백",
+        "[EU] 'Council Directive (EU) 2021/514': EUR-Lex 스니펫 폴백",
+        "[EU] 'Council Directive (EU) 2025/872': EUR-Lex 스니펫 폴백"
+      ],
+      "documents_for_validation": [
+        {
+          "law_name": "Council Directive 2011/16/EU",
+          "primary_url": "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+          "pdf_url": "",
+          "source": "eur-lex (Tavily snippet fallback)"
+        },
+        {
+          "law_name": "Council Directive (EU) 2021/514",
+          "primary_url": "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+          "pdf_url": "",
+          "source": "eur-lex (Tavily snippet fallback)"
+        },
+        {
+          "law_name": "Council Directive (EU) 2025/872",
+          "primary_url": "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+          "pdf_url": "",
+          "source": "eur-lex (Tavily snippet fallback)"
+        }
+      ]
+    },
+    "cross_validation": {
+      "results": [
+        {
+          "claim": {
+            "technology": "DAC",
+            "claim": "연 1만 톤 규모 시범을 검토 중이다",
+            "application": "국내",
+            "type": "규모",
+            "status": "목표"
+          },
+          "credibility": "LOW",
+          "verdict": "판단 보류 (근거 부족)",
+          "flags": [],
+          "trl": "N/A",
+          "mrl": "MRL 1~3",
+          "cri": ""
+        },
+        {
+          "claim": {
+            "technology": "DAC",
+            "claim": "탄소중립기본법·EU CBAM과의 정합성을 알고 싶다",
+            "application": "",
+            "type": "규제",
+            "status": "목표"
+          },
+          "credibility": "LOW",
+          "verdict": "판단 보류 (근거 부족)",
+          "flags": [],
+          "trl": "N/A",
+          "mrl": "MRL 1~3",
+          "cri": ""
+        },
+        {
+          "claim": {
+            "technology": "DAC",
+            "claim": "IRA 45Q 수혜 가능성을 알고 싶다",
+            "application": "",
+            "type": "규제",
+            "status": "목표"
+          },
+          "credibility": "LOW",
+          "verdict": "판단 보류 (근거 부족)",
+          "flags": [],
+          "trl": "N/A",
+          "mrl": "MRL 1~3",
+          "cri": ""
+        }
+      ],
+      "overall_verdict": "조건부 가능",
+      "conflicts": [],
+      "performance_gaps": [],
+      "regulatory_conflicts": [],
+      "fake_claims_detected": []
+    }
+  }
+}

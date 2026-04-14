@@ -27,6 +27,26 @@ class SelectedRegulatoryDocument(BaseModel):
     source: str = Field(default='', description='law.go.kr | eur-lex | federalregister.gov 등')
 
 
+class RegulatoryEvidenceItem(BaseModel):
+    """
+    규제/인센티브 근거 팩 아이템.
+    논문 evidence(`PaperResult`)와 동일하게 요약/발췌/조건/한계/사유를 포함한다.
+    """
+
+    title: str = ''
+    url: str = ''
+    pdf_url: str = ''
+    source: str = ''
+    published_at: str = ''
+    summary: str = ''
+    excerpt: str = ''
+    key_point: str = ''
+    conditions: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    flags: list[str] = Field(default_factory=list)
+    reason: str = ''
+
+
 class PaperResult(BaseModel):
     title: str
     authors: list[str] = []
@@ -162,6 +182,7 @@ class IndustrialAgentOutput(BaseModel):
 class RegulatoryAgentOutput(BaseModel):
     verdict: Literal['해당', '미해당', '불명확'] = '불명확'
     confidence: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    evidences: list[RegulatoryEvidenceItem] = Field(default_factory=list)
     applicable_regulations: list[str] = []
     incentives: list[str] = []
     risks: list[str] = []

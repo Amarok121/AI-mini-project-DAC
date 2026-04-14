@@ -8,6 +8,7 @@ __pycache__/
 # Frontend (Vite/Vue)
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 
 # UX Pilot saved webpages (not source)
 frontend/UX Pilot - Superfast UX_UI Design with AI_files/
