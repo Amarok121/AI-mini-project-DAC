@@ -7,10 +7,15 @@ class PaperResult(BaseModel):
     title: str
     authors: list[str] = []
     year: int = 0
-    journal: str = ''
     url: str = ''
     grade_score: float = 0.0
     grade_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    summary: str = ''
+    key_point: str = ''
+    excerpt: str = ''
+    conditions: list[str] = []
+    limitations: list[str] = []
+    reason: str = ''
 
 
 class ScientificAgentOutput(BaseModel):
@@ -23,19 +28,26 @@ class ScientificAgentOutput(BaseModel):
 
 class NewsResult(BaseModel):
     title: str
-    provider: str = ''
+    publisher: str = ''
     published_at: str = ''
     url: str = ''
     craap_score: float = 0.0
     craap_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    summary: str = ''
+    excerpt: str = ''
+    flags: list[str] = []
 
 
 class PatentResult(BaseModel):
     title: str
     applicant: str = ''
     application_date: str = ''
-    status: Literal['등록', '심사중', '출원'] = '출원'
-    is_core_tech: bool = False
+    status: str = '등록'
+    core_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    summary: str = ''
+    key_point: str = ''
+    flags: list[str] = []
+    url: str = ''
 
 
 class IndustrialAgentOutput(BaseModel):
@@ -68,7 +80,26 @@ class ClaimVerificationResult(BaseModel):
     cri: str = 'CRI 1~3'
 
 
+class PerformanceGapResult(BaseModel):
+    metric: str
+    sci_val: float
+    ind_val: float
+    hype_index: float
+    status: str
+    description: str
+    analyst_note: str
+
+class RegulatoryConflictResult(BaseModel):
+    conflict_type: str
+    severity: str
+    description: str
+    analyst_note: str
+
 class CrossValidatorOutput(BaseModel):
+    """CVA의 최종 분석 결과물"""
     results: list[ClaimVerificationResult] = []
     overall_verdict: str = '판단 보류'
     conflicts: list[str] = []
+    performance_gaps: list[PerformanceGapResult] = []
+    regulatory_conflicts: list[RegulatoryConflictResult] = []
+    fake_claims_detected: list[Claim] = []
