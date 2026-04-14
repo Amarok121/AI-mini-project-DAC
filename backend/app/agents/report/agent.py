@@ -8,9 +8,86 @@ from app.schemas.agent_result import (
 from .roadmap_generator import build_adoption_checklist
 
 
+def _scientific_sources_md(scientific: ScientificAgentOutput) -> str:
+    lines: list[str] = [
+        "### 3.1 논문·식별자 (Scientific)",
+        "",
+    ]
+    if scientific.error:
+        lines.append(f"- _Scientific 단계 오류:_ {scientific.error}")
+        lines.append("")
+        return "\n".join(lines)
+    if not scientific.papers:
+        lines.append("- 상위 논문이 없거나 검색 결과가 비어 있습니다.")
+        lines.append("")
+        return "\n".join(lines)
+    for i, p in enumerate(scientific.papers[:15], 1):
+        head = f"{i}. **{p.title}**"
+        if p.year:
+            head += f" ({p.year})"
+        lines.append(f"- {head}")
+        if p.journal:
+            lines.append(f"  - 저널·출처: {p.journal}")
+        meta: list[str] = []
+        if p.url:
+            meta.append(f"[링크]({p.url})")
+        if p.doi:
+            meta.append(f"DOI: `{p.doi}`")
+        if p.arxiv_id:
+            meta.append(f"arXiv: `{p.arxiv_id}`")
+        if p.openalex_id:
+            meta.append(f"OpenAlex: `{p.openalex_id}`")
+        if p.semantic_scholar_id:
+            meta.append(f"Semantic Scholar: `{p.semantic_scholar_id}`")
+        if meta:
+            lines.append("  - " + " · ".join(meta))
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _industrial_sources_md(industrial: IndustrialAgentOutput) -> str:
+    lines: list[str] = [
+        "### 3.2 산업·뉴스 (Industrial)",
+        "",
+    ]
+    if industrial.error:
+        lines.append(f"- _Industrial 단계 오류:_ {industrial.error}")
+        lines.append("")
+        return "\n".join(lines)
+    if not industrial.news:
+        lines.append("- 뉴스 항목이 없습니다.")
+        lines.append("")
+        return "\n".join(lines)
+    for n in industrial.news[:12]:
+        line = f"- **{n.title}**"
+        if n.provider:
+            line += f" — {n.provider}"
+        lines.append(line)
+        if n.published_at:
+            lines.append(f"  - 일자: {n.published_at}")
+        if n.url:
+            lines.append(f"  - [링크]({n.url})")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _sources_section_md(
+    scientific: ScientificAgentOutput,
+    industrial: IndustrialAgentOutput,
+) -> str:
+    return "\n".join(
+        [
+            "## 3. 근거·출처 (자동 수집)",
+            "",
+            _scientific_sources_md(scientific),
+            _industrial_sources_md(industrial),
+        ]
+    )
+
+
 def _regulatory_section_md(regulatory: RegulatoryAgentOutput) -> str:
     lines = [
-        "## 4. 규제·정책 환경 (요약)",
+        "## 5. 규제·정책 환경 (요약)",
         "",
         f"- 적용성 판정: **{regulatory.verdict}** (신뢰도 지표: {regulatory.confidence} — 규제 ‘출처 신뢰’가 아닌 **해석 불확실성** 표시)",
         "",
@@ -64,6 +141,7 @@ async def run(
     tech = claims[0].technology if claims else "기술"
     checklist = "\n".join([f"- {item}" for item in build_adoption_checklist()])
     reg_md = _regulatory_section_md(regulatory)
+    src_md = _sources_section_md(scientific, industrial)
     return f"""# 기술 검증·도입 가능성 보고서: {tech}
 
 ## 1. Executive Summary
@@ -75,7 +153,8 @@ async def run(
 - Industrial: {industrial.overall_level} ({industrial.mrl_estimate})
 - Regulatory: {regulatory.verdict} ({regulatory.confidence})
 
-## 3. 도입 체크리스트 (초안)
+{src_md}
+## 4. 도입 체크리스트 (초안)
 {checklist}
 
 {reg_md}
