@@ -46,9 +46,9 @@ class TavilyHit:
     content: str
 
 
-_PIPELINE_QUERY_SCHEMA_HINT = """{
+_PIPELINE_QUERY_SCHEMA_HINT = """{{
   "query": string
-}"""
+}}"""
 
 _PIPELINE_QUERY_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -70,7 +70,7 @@ _PIPELINE_QUERY_PROMPT = ChatPromptTemplate.from_messages(
 
 
 def _pipeline_query_chain():
-    return _PIPELINE_QUERY_PROMPT | get_chat_model(temperature=0.2, json_mode=True) | JsonOutputParser()
+    return _PIPELINE_QUERY_PROMPT | get_chat_model(temperature=0.0, json_mode=True) | JsonOutputParser()
 
 
 def _claims_block_for_query(claims: list[Claim]) -> str:

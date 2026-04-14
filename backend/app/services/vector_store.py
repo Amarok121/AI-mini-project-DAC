@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import chromadb
 from langchain_core.documents import Document
 
 from app.core.config import settings
@@ -12,7 +11,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_CLIENT: chromadb.PersistentClient | None = None
+_CLIENT: Any = None
 _COLLECTION: Any = None
 _EMBEDDING_MODEL: Any = None
 
@@ -20,10 +19,17 @@ BATCH_SIZE = 100
 EMBED_BATCH_SIZE = 12
 
 
-def _get_client() -> chromadb.PersistentClient:
+def _get_client() -> Any:
     global _CLIENT
 
     if _CLIENT is None:
+        try:
+            import chromadb  # type: ignore
+        except ImportError as exc:
+            raise RuntimeError(
+                'chromadb is not installed in this runtime. '
+                'Install backend dependencies with chroma extras, or disable RAG features.'
+            ) from exc
         persist_dir = Path(settings.CHROMA_PERSIST_DIR)
         persist_dir.mkdir(parents=True, exist_ok=True)
         _CLIENT = chromadb.PersistentClient(path=str(persist_dir))

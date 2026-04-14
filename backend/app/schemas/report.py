@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from .agent_result import CrossValidationResult, IndustrialResult, RegulatoryResult, ScientificResult
@@ -52,7 +54,7 @@ class SectionDraft(BaseModel):
         default_factory=list,
         validation_alias=AliasChoices('ref_ids_used', 'ref_ids'),
     )
-    error: str | None = None
+    error: Optional[str] = None
     has_error: bool = False
 
     @property
@@ -69,13 +71,13 @@ class CitationMeta(BaseModel):
 
     ref_id: int
     apa7_citation: str = Field(validation_alias=AliasChoices('apa7_citation', 'apa_citation'))
-    raw_text: str | None = Field(default=None, validation_alias=AliasChoices('raw_text', 'snippet'))
-    url: str | None = None
+    raw_text: Optional[str] = Field(default=None, validation_alias=AliasChoices('raw_text', 'snippet'))
+    url: Optional[str] = None
     source_type: str
 
 
 class ScoreItem(BaseModel):
-    value: int | None = None
+    value: Optional[int] = None
     min: int
     max: int
     label: str
@@ -93,9 +95,9 @@ class ClaimVerdictChart(BaseModel):
     claim_text: str
     verdict: str
     confidence: float
-    scientific_confidence: float | None = None
-    industrial_confidence: float | None = None
-    regulatory_confidence: float | None = None
+    scientific_confidence: Optional[float] = None
+    industrial_confidence: Optional[float] = None
+    regulatory_confidence: Optional[float] = None
 
 
 class RoadmapStep(BaseModel):
@@ -107,7 +109,7 @@ class RoadmapStep(BaseModel):
 
 
 class ChartData(BaseModel):
-    score_summary: ScoreSummary | None = None
+    score_summary: Optional[ScoreSummary] = None
     claim_verdicts: list[ClaimVerdictChart] = []
     roadmap_steps: list[RoadmapStep] = []
 
@@ -121,9 +123,9 @@ class ReportOutput(BaseModel):
         validation_alias=AliasChoices('sections', 'section_drafts'),
     )
     citation_metadata: list[CitationMeta] = []
-    chart_data: ChartData | None = None
-    pdf_path: str | None = None
-    error: str | None = None
+    chart_data: Optional[ChartData] = None
+    pdf_path: Optional[str] = None
+    error: Optional[str] = None
 
     @property
     def markdown(self) -> str:

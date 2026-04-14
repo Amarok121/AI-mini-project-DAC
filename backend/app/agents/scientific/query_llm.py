@@ -24,10 +24,10 @@ from app.agents.langchain_setup import get_chat_model
 logger = logging.getLogger(__name__)
 
 
-_SCHEMA_HINT = """{
+_SCHEMA_HINT = """{{
   "query": string,
   "keywords": string[]
-}"""
+}}"""
 
 _PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -52,7 +52,8 @@ _PROMPT = ChatPromptTemplate.from_messages(
 
 
 def _chain():
-    return _PROMPT | get_chat_model(temperature=0.2, json_mode=True) | JsonOutputParser()
+    # Deterministic query generation helps test stability.
+    return _PROMPT | get_chat_model(temperature=0.0, json_mode=True) | JsonOutputParser()
 
 
 def _claims_block(claims: list[Claim]) -> str:

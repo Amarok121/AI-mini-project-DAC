@@ -13,7 +13,7 @@ ConfidenceLevel = Literal['HIGH', 'MED', 'LOW']
 class AgentResultBase(BaseModel):
     agent_name: str = ''
     status: AgentStatus = 'success'
-    error: str | None = None
+    error: Optional[str] = None
     summary: str = ''
     confidence: ConfidenceLevel = 'LOW'
     sources: list[SourceItem] = Field(default_factory=list)

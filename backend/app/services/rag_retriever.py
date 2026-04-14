@@ -1,6 +1,8 @@
 import logging
 from typing import Any
 
+from typing import Optional
+
 from langchain_core.documents import Document
 
 from app.core.config import settings
@@ -42,7 +44,7 @@ def _encode_query(query: str) -> list[list[float]]:
     return list(embeddings)
 
 
-async def retrieve(query: str, n_results: int = 5, where: dict | None = None) -> list[Document]:
+async def retrieve(query: str, n_results: int = 5, where: Optional[dict] = None) -> list[Document]:
     try:
         if not query.strip():
             return []

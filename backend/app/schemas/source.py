@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -12,9 +12,9 @@ class SourceItem(BaseModel):
     ref_id: int = 0
     title: str = ''
     authors: list[str] = []
-    year: int | None = None
+    year: Optional[int] = None
     source_type: SourceType = 'paper'
-    url: str | None = None
-    publisher: str | None = None
-    raw_text: str | None = None
-    apa7_citation: str | None = None
+    url: Optional[str] = None
+    publisher: Optional[str] = None
+    raw_text: Optional[str] = None
+    apa7_citation: Optional[str] = None

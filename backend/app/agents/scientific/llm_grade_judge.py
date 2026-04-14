@@ -38,19 +38,21 @@ _PROMPT = ChatPromptTemplate.from_messages(
                 "3) Treat preprints/reviews appropriately:\n"
                 "   - Review/overview can be MED if it clearly synthesizes evidence and states limitations.\n"
                 "   - Preprint with weak methods detail => LOW.\n"
-                "4) You MUST assign `grade_score` in [0,1] consistent with `grade_level`:\n"
-                "   - HIGH: 0.75~1.00 (clear experimental/field evidence, methods + validation visible)\n"
-                "   - MED:  0.50~0.74 (some empirical basis, but limitations/gaps; or strong review)\n"
-                "   - LOW:  0.00~0.49 (conceptual/modeling-only, dataset-only, vague, or methods/results not evidenced)\n"
-                "5) Provide `evidence_excerpt` per item: quote/paraphrase from abstract or pdf snippet showing why you graded it.\n"
-                "6) `reason` must be concrete and mention what evidence is present/missing (methods, validation, scale, uncertainty).\n"
+                "4) You MUST output deterministic GRADE-style dimension scores per paper in [0,1].\n"
+                "   Dimensions (0 worst -> 1 best):\n"
+                "   - study_design: experimental/field rigor & clarity of methods\n"
+                "   - validation_strength: presence of validation/benchmarking/ablation/uncertainty reporting\n"
+                "   - precision_reporting: presence of quantified results, error bars/ranges, or clear metrics\n"
+                "   - transparency: clarity of assumptions, limitations, and reproducibility signals\n"
+                "   - direct_evidence: whether the paper provides direct empirical evidence vs pure speculation\n"
+                "   If information is not present in the given text, score conservatively (near 0.0~0.3) and explain.\n"
+                "5) Provide `evidence_excerpt` per item: quote/paraphrase from abstract or pdf snippet supporting the scores.\n"
+                "6) `reason` must be concrete and mention what evidence is present/missing.\n"
                 "7) Return JSON only with this exact structure:\n"
-                "- overall_grade: \"HIGH\" | \"MED\" | \"LOW\"\n"
                 "- reasoning_summary: string\n"
                 "- items: array of objects with fields:\n"
                 "  - index (number)\n"
-                "  - grade_level (\"HIGH\" | \"MED\" | \"LOW\")\n"
-                "  - grade_score (number in [0,1])\n"
+                "  - dimensions (object with keys: study_design, validation_strength, precision_reporting, transparency, direct_evidence)\n"
                 "  - reason (string)\n"
                 "  - evidence_excerpt (string)\n"
             ),
@@ -105,6 +107,46 @@ def _safe_score(v: Any) -> float:
     return max(0.0, min(1.0, x))
 
 
+_DIM_KEYS = (
+    "study_design",
+    "validation_strength",
+    "precision_reporting",
+    "transparency",
+    "direct_evidence",
+)
+
+
+def _safe_dims(v: Any) -> dict[str, float]:
+    out: dict[str, float] = {}
+    if not isinstance(v, dict):
+        return out
+    for k in _DIM_KEYS:
+        out[k] = _safe_score(v.get(k))
+    return out
+
+
+def _weighted_grade_from_dims(dims: dict[str, float]) -> float:
+    # Deterministic weights inspired by GRADE dimensions (adapted for our available signals).
+    weights = {
+        "study_design": 0.30,
+        "validation_strength": 0.25,
+        "precision_reporting": 0.20,
+        "transparency": 0.15,
+        "direct_evidence": 0.10,
+    }
+    if not dims:
+        return 0.0
+    return sum(float(dims.get(k, 0.0)) * w for k, w in weights.items())
+
+
+def _level_from_score(score: float) -> Literal["HIGH", "MED", "LOW"]:
+    if score >= 0.75:
+        return "HIGH"
+    if score >= 0.50:
+        return "MED"
+    return "LOW"
+
+
 async def judge_papers_llm(
     papers: list[PaperResult],
     claims: list[Claim],
@@ -141,12 +183,12 @@ async def judge_papers_llm(
     if not isinstance(data, dict):
         return papers, "LOW", "LLM 판정 응답 형식 오류로 휴리스틱을 유지했습니다."
 
-    overall_grade = _safe_level(data.get("overall_grade"))
     reasoning_summary = str(data.get("reasoning_summary") or "").strip()
 
     items = data.get("items")
     if not isinstance(items, list):
-        return papers, overall_grade, reasoning_summary or "LLM 판정 결과(items)가 없어 휴리스틱을 유지했습니다."
+        # Can't grade deterministically without dimension scores.
+        return papers, "LOW", reasoning_summary or "LLM 판정 결과(items)가 없어 휴리스틱을 유지했습니다."
 
     by_idx: dict[int, dict[str, Any]] = {}
     for it in items:
@@ -165,8 +207,9 @@ async def judge_papers_llm(
         if not it:
             out.append(p)
             continue
-        lvl = _safe_level(it.get("grade_level"))
-        score = _safe_score(it.get("grade_score"))
+        dims = _safe_dims(it.get("dimensions"))
+        score = _weighted_grade_from_dims(dims)
+        lvl = _level_from_score(score)
         reason = str(it.get("reason") or "").strip()
         ev = str(it.get("evidence_excerpt") or "").strip()
         # Keep evidence-pack narrative fields; overwrite grading + ensure reason/excerpt are populated.
@@ -177,9 +220,14 @@ async def judge_papers_llm(
                     "grade_score": score,
                     "reason": reason or p.reason,
                     "excerpt": ev or p.excerpt,
+                    "grade_dimensions": dims,
                 }
             )
         )
 
+    # Deterministic overall: based on top-3 by grade_score.
+    top = sorted(out, key=lambda x: x.grade_score, reverse=True)[:3]
+    overall_score = top[0].grade_score if top else 0.0
+    overall_grade = _level_from_score(overall_score)
     return out, overall_grade, reasoning_summary
 
