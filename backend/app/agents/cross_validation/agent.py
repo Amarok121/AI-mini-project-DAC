@@ -53,7 +53,7 @@ async def run(
                 credibility=credibility,
                 verdict=verdict,
                 flags=flags,
-                trl=scientific.trl_estimate,
+                trl="",
                 mrl=industrial.mrl_estimate,
                 cri=estimate_cri(),
             )
