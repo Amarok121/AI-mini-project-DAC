@@ -42,7 +42,9 @@ def _build_search_query(claims: list[Claim]) -> str:
         "탄소 포집",
         "직접공기포집",
     ]
-    q = " ".join([base] + anchors).strip()
+    # NOTE: 검색 쿼리는 영문 토큰 우선(특히 arXiv)이라, 앵커를 앞에 둬서
+    # 'CBAM/IRA/45Q' 같은 규제 토큰이 앞단을 오염시키지 않게 한다.
+    q = " ".join(anchors + ([base] if base else [])).strip()
     return q[:500] or "direct air capture review"
 
 

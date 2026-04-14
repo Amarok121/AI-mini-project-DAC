@@ -1,12 +1,26 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / '.env',
+        env_file_encoding='utf-8',
+        extra='ignore',
+    )
 
     OPENAI_API_KEY: str = ''
     OPENAI_MODEL: str = 'gpt-4o-mini'
     SEMANTIC_SCHOLAR_API_KEY: str = ''
+    NAVER_CLIENT_ID: str = ''
+    NAVER_CLIENT_SECRET: str = ''
+    NAVER_NEWS_API_URL: str = 'https://openapi.naver.com/v1/search/news.json'
+    KIPRIS_API_URL: str = 'http://plus.kipris.or.kr/kipo-api/kipi'
+    API_TIMEOUT_SEC: float = 20.0
     BIGKINDS_API_KEY: str = ''
     KIPRIS_API_KEY: str = ''
     TAVILY_API_KEY: str = ''

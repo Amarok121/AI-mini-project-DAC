@@ -173,7 +173,7 @@ async def _to_result(item: dict, query: str, support_count: int) -> NewsResult:
     )
     return NewsResult(
         title=title,
-        provider=provider,
+        publisher=provider,
         published_at=published_at,
         url=url,
         excerpt=description,
@@ -209,7 +209,7 @@ async def _enrich_top_results(results: list[NewsResult]) -> list[NewsResult]:
         if article_text.strip():
             narrative = await summarize_news_evidence(
                 title=result.title,
-                provider=result.provider,
+                provider=_news_publisher(result),
                 published_at=result.published_at,
                 query=_guess_query_from_result(result),
                 description=result.excerpt or result.summary,
@@ -245,7 +245,7 @@ def _fallback_result(error_message: str, query: str) -> NewsResult:
 
     return NewsResult(
         title=title,
-        provider='fallback',
+        publisher='fallback',
         published_at='',
         url='',
         excerpt=error_message,
@@ -262,7 +262,7 @@ def _no_fulltext_result(query: str) -> NewsResult:
         title = f'{title}: {query[:40]}'
     return NewsResult(
         title=title,
-        provider='fallback',
+        publisher='fallback',
         published_at='',
         url='',
         excerpt='검색은 성공했지만 본문 추출 가능한 기사 확보에 실패했습니다.',
@@ -301,7 +301,7 @@ def _guess_query_from_result(result: NewsResult) -> str:
 def _fallback_news_summary(result: NewsResult) -> str:
     source_text = result.excerpt or result.summary or result.title
     return (
-        f'{result.provider} 기사 "{result.title}"은 {source_text}를 다룬다. '
+        f'{_news_publisher(result)} 기사 "{result.title}"은 {source_text}를 다룬다. '
         f'기술 검증 관점에서는 {result.verdict or "추가 확인이 필요하다"}.'
     ).strip()
 
@@ -336,3 +336,7 @@ def _has_fulltext_evidence(result: NewsResult) -> bool:
     )
     all_text = ' '.join([*(result.flags or []), result.reason or '']).lower()
     return not any(marker.lower() in all_text for marker in red_flags)
+
+
+def _news_publisher(result: NewsResult) -> str:
+    return getattr(result, 'publisher', '') or getattr(result, 'provider', '') or 'unknown'

@@ -1,0 +1,99 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- base -->
+    <linearGradient id="bg" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#121923" />
+      <stop offset="1" stop-color="#0B0F14" />
+    </linearGradient>
+    <linearGradient id="rim" x1="12" y1="10" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7FB5FF" stop-opacity="0.30" />
+      <stop offset="0.45" stop-color="#9AA7B7" stop-opacity="0.22" />
+      <stop offset="1" stop-color="#2D4CFF" stop-opacity="0.18" />
+    </linearGradient>
+
+    <!-- sapphire capsule -->
+    <linearGradient id="capsule" x1="18" y1="18" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D6E6FF" stop-opacity="0.9" />
+      <stop offset="0.22" stop-color="#7FB5FF" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#2D4CFF" stop-opacity="0.98" />
+      <stop offset="1" stop-color="#08143D" stop-opacity="1" />
+    </linearGradient>
+    <linearGradient id="capsuleRim" x1="18" y1="18" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EAF2FF" stop-opacity="0.38" />
+      <stop offset="0.7" stop-color="#EAF2FF" stop-opacity="0.06" />
+      <stop offset="1" stop-color="#2D4CFF" stop-opacity="0.10" />
+    </linearGradient>
+    <radialGradient id="capsuleSpec" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(30 24) rotate(35) scale(18 14)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.55" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- liquid ink smear + drip -->
+    <radialGradient id="ink" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(26 20) rotate(25) scale(24 16)">
+      <stop stop-color="#0B0F14" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#0B0F14" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="inkWet" x1="20" y1="18" x2="44" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B0F14" stop-opacity="0.0" />
+      <stop offset="0.65" stop-color="#0B0F14" stop-opacity="0.55" />
+      <stop offset="1" stop-color="#0B0F14" stop-opacity="0.0" />
+    </linearGradient>
+
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.52" />
+    </filter>
+    <filter id="capsuleGlow" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="2.4" result="b" />
+      <feColorMatrix
+        in="b"
+        type="matrix"
+        values="1 0 0 0 0.18  0 1 0 0 0.30  0 0 1 0 0.95  0 0 0 0.58 0"
+        result="c"
+      />
+      <feMerge>
+        <feMergeNode in="c" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- rounded square -->
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#bg)" filter="url(#shadow)" />
+  <rect x="10" y="10" width="44" height="44" rx="12" stroke="url(#rim)" stroke-width="1.6" />
+
+  <!-- capsule + ink -->
+  <g filter="url(#capsuleGlow)">
+    <!-- capsule body -->
+    <rect x="20" y="18" width="24" height="30" rx="12" fill="url(#capsule)" />
+    <!-- capsule inner rim -->
+    <rect x="21.2" y="19.2" width="21.6" height="27.6" rx="10.8" stroke="url(#capsuleRim)" stroke-width="1.2" />
+
+    <!-- ink smear across top-left -->
+    <path
+      d="M18.8 22.0C24.0 16.5 31.0 16.0 36.8 18.3C42.0 20.4 46.0 19.9 50.0 18.0C46.7 25.0 42.6 26.8 37.4 26.0C30.6 24.9 26.1 28.1 19.2 30.1C20.0 27.0 19.6 24.2 18.8 22.0Z"
+      fill="url(#ink)"
+      opacity="0.92"
+    />
+    <!-- wet sheen on ink -->
+    <path d="M21 23.5C26 20 32.5 19.8 38.3 22.0C41.2 23.1 44.2 23.1 47 22.3" stroke="url(#inkWet)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+
+    <!-- drip drop -->
+    <path
+      d="M38.6 30.2C38.6 28.9 39.7 27.8 41 27.8C42.3 27.8 43.4 28.9 43.4 30.2C43.4 31.9 42.0 33.5 41 34.6C40.0 33.5 38.6 31.9 38.6 30.2Z"
+      fill="#0B0F14"
+      opacity="0.78"
+    />
+
+    <!-- sapphire highlight -->
+    <path
+      d="M24.0 23.0C26.8 19.8 31.2 19.5 34.6 20.9C30.8 21.1 28.4 22.4 26.0 24.6C25.2 25.3 24.5 26.2 24.0 27.2C23.6 25.6 23.4 24.1 24.0 23.0Z"
+      fill="url(#capsuleSpec)"
+      opacity="0.9"
+    />
+
+    <!-- tiny bubble (liquid feel) -->
+    <circle cx="29.2" cy="33.2" r="1.6" fill="#EAF2FF" opacity="0.20" />
+    <circle cx="33.7" cy="38.8" r="1.2" fill="#EAF2FF" opacity="0.16" />
+  </g>
+</svg>
+

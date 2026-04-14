@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-04-14T08:17:59.468928+00:00",
+    "request": {
+      "input_type": "text",
+      "content": "DAC 직접공기포집 기술로 연 1만 톤 규모 시범을 검토 중이다. 국내 탄소중립기본법·EU CBAM과의 정합성, IRA 45Q 수혜 가능성을 알고 싶다."
+    }
+  },
+  "data": {
+    "verdict": "불명확",
+    "confidence": "MED",
+    "evidences": [
+      {
+        "title": "Notice of Intent To Prepare an Environmental Impact Statement for the Project Cypress Direct Air Capture (DAC) Hub",
+        "url": "https://www.federalregister.gov/documents/2024/11/01/2024-25499/notice-of-intent-to-prepare-an-environmental-impact-statement-for-the-project-cypress-direct-air",
+        "pdf_url": "",
+        "source": "Federal Register",
+        "published_at": "2024-11-01",
+        "summary": "The DOE's initiative under the Bipartisan Infrastructure Law aims to accelerate the commercialization of Direct Air Capture (DAC) technologies. This includes funding for projects that demonstrate effective CO2 capture and storage, which is crucial for achieving carbon neutrality goals. The program emphasizes overcoming challenges related to cost and infrastructure to facilitate widespread DAC deployment.",
+        "excerpt": "The proposed action would fulfill DOE's goals of accelerating the deployment of these technologies and enabling infrastructure to attract greater investments from the private sector.",
+        "key_point": "Funding for DAC projects is essential for achieving carbon neutrality.",
+        "conditions": [
+          "Projects must demonstrate effective CO2 capture and storage.",
+          "Funding is contingent on meeting specific criteria for DAC Hub projects."
+        ],
+        "limitations": [
+          "Challenges include cost, durability, and existing infrastructure.",
+          "Projects must align with DOE's statutory mandate."
+        ],
+        "flags": [],
+        "reason": "The initiative is part of a broader strategy to enhance DAC technology and infrastructure, which is critical for meeting climate targets."
+      },
+      {
+        "title": "Demonstration of a Continuous-Motion Direct Air Capture (DAC) System",
+        "url": "https://www.energy.gov/nepa/articles/cx-022432-demonstration-continuous-motion-direct-air-capture-dac-system",
+        "pdf_url": "",
+        "source": "Department of Energy",
+        "published_at": "2024-01-01",
+        "summary": "This project focuses on developing a continuous motion DAC system capable of capturing CO2 from the atmosphere with over 95% purity. The successful implementation of such technology could significantly contribute to carbon reduction efforts and provide a model for future DAC systems.",
+        "excerpt": "The objective is to develop a continuous motion Direct Air Capture (DAC) system that will capture CO2 from the air and produce a >95 percent purity CO2 product.",
+        "key_point": "High purity CO2 capture is a goal for DAC technology development.",
+        "conditions": [
+          "System must achieve over 95% CO2 purity.",
+          "Field testing is required to validate performance."
+        ],
+        "limitations": [
+          "Performance metrics must be rigorously tested.",
+          "Commercial viability is still under evaluation."
+        ],
+        "flags": [],
+        "reason": "The development of high-purity DAC systems is essential for effective carbon management and aligns with climate policy objectives."
+      }
+    ],
+    "applicable_regulations": [],
+    "incentives": [
+      "IRA 45Q tax credit may apply if DAC systems meet specific criteria."
+    ],
+    "risks": [
+      "High initial investment costs.",
+      "Technological reliability and scalability concerns."
+    ],
+    "requires_expert_review": true,
+    "source_urls": [
+      "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+      "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_en",
+      "https://ec.europa.eu/taxation_customs/taxation-1/tax-co-operation-and-control/general-overview/enhanced-administrative-cooperation-field-direct-taxation_en",
+      "https://www.federalregister.gov/documents/2024/11/01/2024-25499/notice-of-intent-to-prepare-an-environmental-impact-statement-for-the-project-cypress-direct-air",
+      "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Glossary%3ADAC_countries",
+      "https://www.energy.gov/nepa/articles/cx-022432-demonstration-continuous-motion-direct-air-capture-dac-system"
+    ],
+    "evidence_summary": "수집된 근거(정부·공공 포털/공식 문서 텍스트 일부, 공식 도메인 링크/스니펫)를 바탕으로 적용성을 보수적으로 평가했다. 현재 판정은 '불명확'이며 신뢰도는 MED로, 원문 조문/공식 가이드가 충분히 확보되지 않으면 규제 적용 여부를 단정할 수 없다는 점을 전제로 한다. 인센티브 측면에서는 IRA 45Q tax credit may apply if DAC systems meet specific criteria.가 언급되었으나, 적용 요건(규모·연간 톤수·보고/인증 절차 등)은 추가 확인이 필요하다. 리스크 측면에서는 High initial investment costs.; Technological reliability and scalability concerns.가 남아 있으며, 도입·신고·세액공제 가능성은 법무/규제 전문가 검토가 필요하다.",
+    "error": null,
+    "reason": "The claims regarding DAC's alignment with existing regulations and potential incentives are not fully substantiated by the available evidence, leading to uncertainty about their applicability.",
+    "extracted_law_candidates": [
+      "Infrastructure and Investment in Jobs Act",
+      "Bipartisan Infrastructure Law",
+      "Council Directive 2011/16/EU",
+      "Council Directive (EU) 2021/514",
+      "Council Directive (EU) 2025/872"
+    ],
+    "pipeline_notes": [
+      "[?] 'Infrastructure and Investment in Jobs Act': 지역 분류 불명 — 스킵",
+      "[?] 'Bipartisan Infrastructure Law': 지역 분류 불명 — 스킵",
+      "[EU] 'Council Directive 2011/16/EU': EUR-Lex 스니펫 폴백",
+      "[EU] 'Council Directive (EU) 2021/514': EUR-Lex 스니펫 폴백",
+      "[EU] 'Council Directive (EU) 2025/872': EUR-Lex 스니펫 폴백"
+    ],
+    "documents_for_validation": [
+      {
+        "law_name": "Council Directive 2011/16/EU",
+        "primary_url": "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+        "pdf_url": "",
+        "source": "eur-lex (Tavily snippet fallback)"
+      },
+      {
+        "law_name": "Council Directive (EU) 2021/514",
+        "primary_url": "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+        "pdf_url": "",
+        "source": "eur-lex (Tavily snippet fallback)"
+      },
+      {
+        "law_name": "Council Directive (EU) 2025/872",
+        "primary_url": "https://ec.europa.eu/taxation_customs/business/tax-cooperation-control/administrative-cooperation/enhanced-administrative-cooperation-field-direct-taxation_fr",
+        "pdf_url": "",
+        "source": "eur-lex (Tavily snippet fallback)"
+      }
+    ]
+  }
+}
