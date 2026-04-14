@@ -18,3 +18,6 @@ frontend/.vite/
 
 # UX Pilot saved webpages (not source)
 frontend/UX Pilot - Superfast UX_UI Design with AI_files/
+
+# Local debug outputs
+docs/_agent_outputs_latest/live_verify_response.json

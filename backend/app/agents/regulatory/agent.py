@@ -14,7 +14,7 @@ from app.agents.regulatory.portal_fetch import PortalDocument
 from app.agents.regulatory.law_extract import extract_law_candidates
 from app.agents.regulatory.portal_fetch import fetch_portal_documents
 from app.agents.regulatory.regulatory_llm import analyze_regulatory_impact
-from app.agents.regulatory.tavily_search import search_regulations_pipeline
+from app.agents.regulatory.tavily_search import TavilyHit, search_regulations_pipeline
 
 
 def _claims_narrative(claims: list[Claim]) -> str:
@@ -229,16 +229,134 @@ def _analysis_to_evidences(analysis: dict[str, Any]) -> list[RegulatoryEvidenceI
     return [e for e in out if (e.title or e.url or e.summary)]
 
 
+def _hit_score(hit: TavilyHit, claims: list[Claim]) -> int:
+    """
+    Tavily hit 중 Direct Air Capture 규제/인센티브 근거로 쓸 만한 것에 점수를 준다.
+    (무관한 'DAC' 약어 문서가 상단으로 올라오는 문제 완화)
+    """
+    title = (hit.title or "").lower()
+    url = (hit.url or "").lower()
+    content = (hit.content or "").lower()
+    blob = f"{title}\n{url}\n{content}"
+
+    score = 0
+    for kw in (
+        "direct air capture",
+        "carbon capture",
+        "co2",
+        "carbon dioxide",
+        "45q",
+        "tax credit",
+        "doe",
+        "epa",
+        "nepa",
+        "federal register",
+        "energy.gov",
+        "federalregister.gov",
+    ):
+        if kw in blob:
+            score += 3
+
+    for kw in ("directive on administrative cooperation", "tax cooperation", "administrative cooperation", "dac6", "dac7"):
+        if kw in blob and "direct air capture" not in blob:
+            score -= 4
+
+    for c in claims[:5]:
+        t = (c.technology or "").lower().strip()
+        if t and t in blob:
+            score += 2
+
+    # 매우 무관한 대형 텍스트/리스트 리소스는 감점
+    if "org-ot.txt" in url or "babelnet" in url:
+        score -= 10
+
+    return score
+
+
+def _fallback_evidences_from_sources(
+    portal_docs: list[PortalDocument],
+    hits: list[TavilyHit],
+    claims: list[Claim],
+    *,
+    max_items: int = 4,
+) -> list[RegulatoryEvidenceItem]:
+    """
+    LLM이 `evidences`를 누락하는 경우가 있어, 최소한의 evidence-pack 아이템을 구성한다.
+    - portal_docs가 있으면 우선 사용
+    - 없으면 Tavily hits의 title/content를 요약으로 사용
+    """
+    out: list[RegulatoryEvidenceItem] = []
+
+    for d in portal_docs[:max_items]:
+        txt = (d.text or "").strip()
+        excerpt = ""
+        if txt:
+            excerpt = txt.splitlines()[0].strip()[:260]
+        out.append(
+            RegulatoryEvidenceItem(
+                title=d.law_name,
+                url=d.url or "",
+                pdf_url=getattr(d, "pdf_url", "") or "",
+                source=d.source,
+                published_at="",
+                summary=txt[:900] + ("…" if len(txt) > 900 else ""),
+                excerpt=excerpt,
+                key_point="공식/포털 텍스트 기반 근거",
+                conditions=[],
+                limitations=["전문 조문 단위 검토 필요"] if txt else ["텍스트 미수집"],
+                flags=["portal_text"] if txt else ["portal_empty"],
+                reason="LLM이 evidence 아이템을 누락하여, 수집된 포털/공식 텍스트를 그대로 근거팩으로 구성했다.",
+            )
+        )
+        if len(out) >= max_items:
+            return out
+
+    # hits fallback (TavilyHit: title/url/content)
+    ranked = sorted(list(hits or []), key=lambda h: _hit_score(h, claims), reverse=True)
+    for h in ranked:
+        if len(out) >= max_items:
+            break
+        title = str(getattr(h, "title", "") or "").strip() or "(제목 없음)"
+        url = str(getattr(h, "url", "") or "").strip()
+        content = str(getattr(h, "content", "") or "").strip()
+        if not (title or url or content):
+            continue
+        excerpt = content.split(". ", 1)[0].strip()[:260] if content else ""
+        summary = content[:900] + ("…" if len(content) > 900 else "")
+        out.append(
+            RegulatoryEvidenceItem(
+                title=title,
+                url=url,
+                pdf_url="",
+                source=(url.split("/")[2] if "://" in url else ""),
+                published_at="",
+                summary=summary,
+                excerpt=excerpt,
+                key_point="웹 스니펫 기반 근거(법적 확정 불가)",
+                conditions=[],
+                limitations=["스니펫만으로 법적 요건/적용범위 확정 불가"],
+                flags=["snippet_only"],
+                reason="공식 원문이 부족하거나 LLM structured output이 불완전할 때의 최소 근거팩이다.",
+            )
+        )
+
+    return out
+
+
 def _dict_to_output(
     analysis: dict[str, Any],
     law_names: list[str],
     source_urls: list[str],
     pipeline_notes: list[str],
     portal_docs: list[PortalDocument],
+    hits: list[TavilyHit],
+    claims: list[Claim],
 ) -> RegulatoryAgentOutput:
     ev_sum = analysis.get("evidence_summary")
     picked_urls = _pick_source_urls(portal_docs, source_urls)
     evidences = _analysis_to_evidences(analysis)
+    if not evidences:
+        evidences = _fallback_evidences_from_sources(portal_docs, hits, claims)
     return RegulatoryAgentOutput(
         verdict=_safe_verdict(analysis.get("verdict")),
         confidence=_safe_confidence(analysis.get("confidence")),
@@ -322,5 +440,5 @@ async def run(claims: list[Claim]) -> RegulatoryAgentOutput:
             notes,
         )
 
-    out = _dict_to_output(analysis, law_names, source_urls, notes, portal_docs)
+    out = _dict_to_output(analysis, law_names, source_urls, notes, portal_docs, hits, claims)
     return out
