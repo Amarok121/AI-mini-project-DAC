@@ -46,7 +46,7 @@ class PaperResult(BaseModel):
     key_point: str = ''
     conditions: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
-    evidence_note: str = ''
+    reason: str = ''
 
 
 class GradeDimensionScores(BaseModel):
@@ -64,7 +64,6 @@ class GradeDimensionScores(BaseModel):
 class ScientificAgentOutput(BaseModel):
     papers: list[PaperResult] = []
     overall_grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
-    trl_estimate: str = 'TRL 1~3'
     summary: str = ''
     error: Optional[str] = None
     grade_breakdown: Optional[GradeDimensionScores] = None

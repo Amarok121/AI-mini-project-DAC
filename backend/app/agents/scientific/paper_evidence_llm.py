@@ -28,9 +28,9 @@ EVIDENCE_PROMPT = ChatPromptTemplate.from_messages(
                 "the abstract does not explicitly state a separate conclusion section. "
                 "Do not invent numbers or claims absent from the abstract. "
                 "Return JSON only: {{\"items\": [{{\"index\": 0, \"summary\": \"...\", \"excerpt\": \"...\", "
-                "\"key_point\": \"...\", \"conditions\": [], \"limitations\": [], \"evidence_note\": \"...\"}}]}}. "
+                "\"key_point\": \"...\", \"conditions\": [], \"limitations\": [], \"reason\": \"...\"}}]}}. "
                 "`excerpt` is one short quote or tight paraphrase from the abstract. "
-                "`evidence_note` is optional: how a journalist might overstate vs this evidence."
+                "`reason` is optional: how a journalist might overstate vs this evidence."
             ),
         ),
         ("user", "클레임 맥락:\n{claims_block}\n\n논문 목록:\n{papers_block}"),
@@ -76,7 +76,7 @@ def _fallback_pack(p: PaperResult) -> PaperResult:
             "key_point": "초록·메타데이터 기반 자동 요약",
             "conditions": [],
             "limitations": ["전문 미확인", "초록만으로 실험 조건이 불명확할 수 있음"] if not ab else ["전문 미확인"],
-            "evidence_note": "",
+            "reason": "전문을 직접 확인하지 못했고 초록·메타데이터만 기반으로 요약했으므로, 상용화·성능 일반화 표현은 과장일 수 있다.",
         }
     )
 
@@ -144,7 +144,7 @@ async def enrich_papers_evidence_pack(
                     "key_point": _sl("key_point"),
                     "conditions": _lst("conditions"),
                     "limitations": _lst("limitations"),
-                    "evidence_note": _sl("evidence_note"),
+                    "reason": _sl("reason"),
                 }
             )
         )

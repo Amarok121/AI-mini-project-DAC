@@ -54,7 +54,6 @@ async def _main() -> str:
     sci = result.scientific
     lines.append("")
     lines.append(f"- **overall_grade:** {sci.overall_grade}")
-    lines.append(f"- **trl_estimate:** {sci.trl_estimate}")
     lines.append(f"- **search_sources:** {sci.search_sources}")
     lines.append(f"- **논문 수:** {len(sci.papers)}")
     lines.append(f"- **error:** {sci.error or '(없음)'}")

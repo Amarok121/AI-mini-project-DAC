@@ -14,7 +14,6 @@ from app.core.config import settings
 
 from app.agents.scientific.grade_evaluator import (
     average_grade_dimensions,
-    estimate_trl_from_text,
     normalize_title,
     paper_result_from_parts,
     score_unified_paper,
@@ -390,9 +389,6 @@ async def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentO
     else:
         overall = "LOW"
 
-    abstract_blob = " ".join(str(u.get("abstract") or "") for u, _, _, _ in top[:3])
-    trl = estimate_trl_from_text(abstract_blob + " " + q)
-
     summary = (
         f"Semantic Scholar·OpenAlex·arXiv 기준 상위 {len(papers)}편을 선별했습니다. "
         f"평균 가중 GRADE 스켈레톤 점수는 상위 3편 기준 약 {mean_score:.2f}이며, "
@@ -402,7 +398,6 @@ async def _assemble_scientific_output(state: dict[str, Any]) -> ScientificAgentO
     return ScientificAgentOutput(
         papers=papers,
         overall_grade=overall,  # type: ignore[arg-type]
-        trl_estimate=trl,
         summary=summary,
         error=None,
         grade_breakdown=avg_dims,
