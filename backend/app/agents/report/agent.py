@@ -559,6 +559,51 @@ async def generate_report(
         )
 
 
+def _regulatory_section_md(regulatory: RegulatoryAgentOutput) -> str:
+    lines = [
+        "## 4. 규제·정책 환경 (요약)",
+        "",
+        f"- 적용성 판정: **{regulatory.verdict}** (신뢰도 지표: {regulatory.confidence} — 규제 ‘출처 신뢰’가 아닌 **해석 불확실성** 표시)",
+        "",
+    ]
+    if regulatory.applicable_regulations:
+        lines.append("- 관련 규제·문서 후보:")
+        for item in regulatory.applicable_regulations[:15]:
+            lines.append(f"  - {item}")
+        lines.append("")
+    if regulatory.incentives:
+        lines.append("- 인센티브·지원 (에이전트 요약):")
+        for item in regulatory.incentives:
+            lines.append(f"  - {item}")
+        lines.append("")
+    if regulatory.risks:
+        lines.append("- 리스크:")
+        for item in regulatory.risks:
+            lines.append(f"  - {item}")
+        lines.append("")
+    if regulatory.source_urls:
+        lines.append("- 참고 링크:")
+        for u in regulatory.source_urls[:12]:
+            lines.append(f"  - {u}")
+        lines.append("")
+    if regulatory.reason:
+        lines.extend(["- **판단 근거 요약 (에이전트):**", "", regulatory.reason, ""])
+    if regulatory.extracted_law_candidates:
+        lines.append("- 법령·정책명 추출 후보 (2단계):")
+        for item in regulatory.extracted_law_candidates[:12]:
+            lines.append(f"  - {item}")
+        lines.append("")
+    if regulatory.pipeline_notes:
+        lines.append("- 파이프라인 메모:")
+        for n in regulatory.pipeline_notes[:15]:
+            lines.append(f"  - {n}")
+        lines.append("")
+    if regulatory.error:
+        lines.append(f"- _에이전트 메모:_ {regulatory.error}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 async def run(
     claims: list[Claim],
     scientific: ScientificAgentOutput,

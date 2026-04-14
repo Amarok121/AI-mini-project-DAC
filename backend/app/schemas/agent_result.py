@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .claim import Claim, ClaimJudgement
 
@@ -40,14 +40,32 @@ class PaperResult(BaseModel):
     url: str = ''
     grade_score: float = 0.0
     grade_level: ConfidenceLevel = 'LOW'
+    citation_count: int = 0
+    abstract: str = ''
+    semantic_scholar_id: str = ''
+    openalex_id: str = ''
+    arxiv_id: str = ''
+    doi: str = ''
+
+
+class GradeDimensionScores(BaseModel):
+    study_design: float = Field(0.0, description='연구 설계 수준')
+    bias_risk: float = Field(0.0, description='편향 위험 (높을수록 양호)')
+    consistency_hint: float = Field(0.0, description='인용·일관성 힌트 (OpenAlex 등)')
+    directness: float = Field(0.0, description='실제 적용 조건과의 근접도 (휴리스틱)')
+    precision_hint: float = Field(0.0, description='표본·인용 규모 힌트')
+    venue_authority: float = Field(0.0, description='저널·출처 권위 휴리스틱')
+    weighted_total: float = Field(0.0, description='가중 합산')
 
 
 class ScientificResult(AgentResultBase):
     papers: list[PaperResult] = []
     overall_grade: ConfidenceLevel = 'LOW'
     trl_score: int = 1
-    trl_estimate: str = 'TRL 1'
+    trl_estimate: str = 'TRL 1~3'
     trl_rationale: str = ''
+    grade_breakdown: Optional[GradeDimensionScores] = None
+    search_sources: list[str] = Field(default_factory=list)
 
 
 class NewsResult(BaseModel):
@@ -72,7 +90,7 @@ class IndustrialResult(AgentResultBase):
     patents: list[PatentResult] = []
     overall_level: ConfidenceLevel = 'LOW'
     mrl_score: int = 1
-    mrl_estimate: str = 'MRL 1'
+    mrl_estimate: str = 'MRL 1~3'
     mrl_rationale: str = ''
 
 
@@ -86,6 +104,9 @@ class RegulatoryResult(AgentResultBase):
     cri_score: int = 1
     cri_estimate: str = 'CRI 1'
     cri_rationale: str = ''
+    reason: Optional[str] = None
+    extracted_law_candidates: list[str] = []
+    pipeline_notes: list[str] = []
 
 
 class CrossValidationResult(AgentResultBase):
@@ -143,7 +164,6 @@ class ReportOutput(BaseModel):
     error: str | None = None
 
 
-# Backward-compatible aliases for the current codebase.
 ScientificAgentOutput = ScientificResult
 IndustrialAgentOutput = IndustrialResult
 RegulatoryAgentOutput = RegulatoryResult
