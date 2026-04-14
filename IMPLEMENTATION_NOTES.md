@@ -91,3 +91,63 @@ cp .env.example .env
 - 노드 추가나 분기 변경은 팀 공유 후 반영한다
 - Tool 추가 시 `app/tools/` 아래에 먼저 정의하고 agent에서 재사용한다
 - 개발 환경에는 `langchain`과 `langgraph` 설치가 선행되어야 한다
+
+---
+
+## 팀 변경 기록 (자유 양식 — 각자 날짜·브랜치별로 아래에 추가)
+
+### 2026-04-14 — `scientific-and-regulations` (Scientific / Regulatory 에이전트·병합)
+
+**요약:** Scientific은 Semantic Scholar + OpenAlex + arXiv 검색을 제목 정규화로 병합한 뒤 GRADE 스타일 휴리스틱으로 점수화한다. Regulatory는 Tavily → (LangChain JSON) 법령명 추출 → law.go.kr·EUR-Lex 보조 fetch → (LangChain JSON) 적용성 해석 순으로 동작한다. LLM 호출은 `langchain_setup.get_chat_model`과 `ChatPromptTemplate` + `JsonOutputParser`를 사용한다. 파이프라인 진입은 `origin/main` 병합 후 **`orchestrator` → LangGraph `build_verification_graph()`** 가 표준이며, 예전 단일 `asyncio.gather` 구현은 대체되었다.
+
+**추가·수정된 주요 경로**
+| 영역 | 파일 |
+|------|------|
+| Scientific LCEL | `backend/app/agents/scientific/lc_chain.py`, `agent.py` |
+| 검색 클라이언트 | `semantic_scholar.py`, `openalex.py`, `arxiv.py` |
+| GRADE 스켈레톤 | `grade_evaluator.py` |
+| 스키마 | `backend/app/schemas/agent_result.py` (`PaperResult`, `GradeDimensionScores`, …) |
+| Regulatory LLM | `law_extract.py`, `regulatory_llm.py` |
+| 포털·EU | `portal_fetch.py`, `eurlex.py` |
+| 공통 LC | `backend/app/agents/langchain_setup.py` |
+| 그래프 | `backend/app/pipeline/verification_graph.py`, `state.py`, `orchestrator.py` |
+| 의존성 | `backend/requirements.txt` — `langchain-core`, `langchain-openai`, `langgraph`, 기존 API 클라이언트 |
+
+**스모크 테스트 (로컬)**
+- 스크립트: `backend/scripts/smoke_verify_report.py` — `run_verification` 1회 실행 후 요약 마크다운을 출력하거나 파일로 저장.
+- 최근 실행 결과 예시: `docs/agent_smoke_test_latest.md` (저장소에 커밋해 두면 팀이 동일 절차로 재현 가능).
+- 명령: `cd backend && PYTHONPATH=. python scripts/smoke_verify_report.py ../docs/agent_smoke_test_latest.md`
+
+**이번 점검에서 수정한 버그 (참고)**
+- `lc_chain`에서 `asyncio.to_thread(search_papers, q, 10)` 형태는 키워드 전용 인자(`limit`, `per_page`)와 맞지 않아 실패함 → `lambda: search_papers(q, limit=10)` 등으로 호출 수정.
+- `law_extract` 시스템 프롬프트에 JSON 예시 `{"laws": …}`가 그대로 들어가 LangChain이 변수 `laws`로 해석함 → `{{"laws": …}}` 이스케이프.
+
+**입·출력 계약 (요약)**
+- API 전체: `VerificationRequest` / `VerificationResponse` (`schemas/api.py`).
+- Scientific: `ScientificAgentOutput` — `papers`, `overall_grade`, `trl_estimate`, `grade_breakdown`, `search_sources`, `error` 등.
+- Regulatory: `RegulatoryAgentOutput` — `verdict`, `confidence`, `applicable_regulations`, `source_urls`, `pipeline_notes`, `extracted_law_candidates`, `error` 등.
+- 자연어 “프롬프트”로 입출력 전체가 정의된 것은 아니며, **규제 LLM 두 단계**(`law_extract`, `regulatory_llm`)에 시스템/유저 메시지가 명시되어 있다.
+
+### 2026-04-14 (추가) — Claim extractor·보고서 출처
+
+- **`claim_extractor`**: LangChain `ChatPromptTemplate` + OpenAI JSON으로 본문에서 최대 10개 `Claim` 추출. `OPENAI_API_KEY`가 없으면 본문 앞부분을 요약한 **폴백 클레임 1건**으로 파이프라인 유지.
+- **`report`**: 마크다운에 **§3 근거·출처** — Scientific 상위 논문별 링크·DOI·arXiv·OpenAlex·S2 ID, Industrial 뉴스 링크. 규제 섹션은 **§5**로 번호 조정(기존 §4 참고 링크 유지).
+
+### 2026-04-14 (추가) — 교차검증용 문서 URL 전달
+
+- **`PaperResult.pdf_url`**: Semantic Scholar `openAccessPdf.url`, arXiv는 `https://arxiv.org/pdf/{id}.pdf` 규칙.
+- **`RegulatoryAgentOutput.documents_for_validation`**: 포털 `PortalDocument`에서 법령명·대표 URL·PDF(가능 시: EU CELEX→EUR-Lex PDF, US Federal Register `pdf_url`) 참조.
+- **`CrossValidatorOutput`**: `papers_for_validation`, `regulations_for_validation` — 외부 파서/평가 모듈이 바이너리 대신 URL로 받도록 정렬(본 저장소는 PDF 파싱 안 함).
+- **PDF URL 동작 확인**: `backend/scripts/check_pdf_urls.py` — HEAD(또는 소량 GET)로 `application/pdf` 또는 `%PDF` 시그니처 검사. 인자 없이 실행 시 arXiv 샘플 URL로 스모크.
+
+### 2026-04-14 (추가) — Claim 강화 (few-shot·검증·스키마)
+
+- **Few-shot**: 시스템 프롬프트에 JSON 형식 예시 2건(한·영 혼합) 추가.
+- **후처리**: 최소 길이(10자)·중복 제거(제목+주장 접두)·본문과의 토큰 겹침 휴리스틱으로 환각 후보 제거; 전부 탈락 시 폴백.
+- **필드**: `schemas/claim.py`에 `Field`로 길이·기본값 정리; `type`은 허용 집합 외 **일반**으로 통일.
+- **테스트**: `tests/conftest.py`에서 루트 `.env` 선로드; `test_claim_extractor_integration.py`는 `OPENAI_API_KEY` 있을 때만 실 API 호출(없으면 skip).
+
+**알려진 한계 / 후속**
+- 클레임 품질은 입력 길이·LLM에 의존; 후속으로 스키마 검증·후처리·Few-shot을 강화할 수 있음.
+- `backend/app/tools/` 디렉터리는 팀 명세상 계획이며, Industrial은 현재 `agents/industrial/`에서 동작.
+- 논문/규제 검색 **부족 시 재시도 루프**는 미구현 — 레이트 리밋·비용 고려해 상한·백오프와 함께 도입 검토.
