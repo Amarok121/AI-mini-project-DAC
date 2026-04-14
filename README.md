@@ -25,6 +25,15 @@ uvicorn app.main:app --reload --port 8000
 `run_verification()`는 LangGraph 기반 그래프를 직접 실행합니다.
 따라서 `requirements.txt`의 `langgraph`와 `langchain` 설치가 필수입니다.
 
+## Send a query (Terminal 2)
+백엔드 서버(`uvicorn ... --reload --port 8000`)를 한 터미널에서 실행한 상태에서, 다른 터미널에서 아래처럼 `POST /verify`를 호출하면 됩니다.
+
+```bash
+curl -sS -X POST http://localhost:8000/verify \
+  -H "Content-Type: application/json" \
+  -d '{"input_type":"text","content":"공기 중 CO2를 직접 포집하는 DAC 기술을 1,000시간 연속 운전했다고 하는데 도입 가능성은?"}'
+```
+
 ## LangGraph Flow
 1. `preprocess`
 2. `extract_claims`
