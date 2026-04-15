@@ -1,3 +1,5 @@
+import app.agents.langchain_setup  # noqa: F401 — patch langchain.debug before LangGraph ainvoke
+
 from app.schemas.api import VerificationRequest, VerificationResponse
 from .verification_graph import build_verification_graph
 

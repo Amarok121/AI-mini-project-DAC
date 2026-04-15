@@ -21,15 +21,6 @@
         </div>
 
         <div class="card-body" style="display: flex; flex-direction: column; gap: 14px">
-          <div class="tabs">
-            <button class="tab" :class="{ active: inputMode === 'text' }" @click="inputMode = 'text'">
-              텍스트 입력
-            </button>
-            <button class="tab" :class="{ active: inputMode === 'pdf' }" @click="inputMode = 'pdf'">
-              PDF 업로드
-            </button>
-          </div>
-
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
             <div class="field">
               <label>언어</label>
@@ -49,18 +40,18 @@
             </div>
           </div>
 
-          <div v-if="inputMode === 'text'" class="field" style="flex: 1">
+          <div class="field" style="flex: 1">
             <div class="label-row">
               <label>검증 대상 텍스트</label>
               <span class="hint">{{ text.length.toLocaleString() }} / 20,000</span>
             </div>
-            <textarea v-model="text" maxlength="20000" placeholder="여기에 검증할 기술 설명이나 클레임을 입력하세요..." />
+            <textarea v-model="text" maxlength="20000" placeholder="검증할 기술 설명·클레임을 입력하세요. PDF와 함께 보내면 본문이 합쳐집니다." />
           </div>
-          <div v-else class="field">
-            <label>PDF 업로드</label>
+          <div class="field">
+            <label>참고 PDF (선택)</label>
             <input type="file" accept="application/pdf" @change="onPickPdf" />
             <div class="hint" v-if="pdfFile">{{ pdfFile.name }} ({{ Math.round(pdfFile.size / 1024) }}KB)</div>
-            <div class="hint" v-else>PDF 워크플로는 다음 단계에서 백엔드 업로드를 붙일 예정입니다.</div>
+            <div class="hint" v-else>업로드 시 서버에서 텍스트만 추출해 검증에 포함합니다(파일은 저장하지 않습니다).</div>
           </div>
 
           <div class="error" v-if="errorMsg">{{ errorMsg }}</div>
@@ -83,8 +74,7 @@
               <span style="font-weight: 900; color: var(--text-strong)">결과 요약</span>
             </div>
             <div style="display: flex; gap: 8px">
-              <button class="icon-btn" title="Download" :disabled="!result">⭳</button>
-              <button class="icon-btn" title="Share" :disabled="!result">⤴</button>
+              <button class="icon-btn" title="Markdown 다운로드" :disabled="!result" @click="downloadMarkdownFile">⭳</button>
             </div>
           </div>
           <div class="card-body">
@@ -153,12 +143,11 @@
               </div>
 
               <div v-else>
-                <div style="display: flex; justify-content: flex-end; margin-bottom: 10px">
-                  <button class="btn" @click="copyReport">Copy</button>
-                </div>
-                <div class="mono card" style="padding: 12px; border-radius: 10px; max-height: 520px; overflow: auto">
-                  {{ result.report_markdown }}
-                </div>
+                <ReportViewer
+                  :markdown="result.report_markdown || ''"
+                  :citations="result.citation_metadata"
+                  @copy="copyReport"
+                />
               </div>
             </div>
           </div>
@@ -241,6 +230,8 @@ import { computed, onMounted, ref } from "vue";
 import ScoreSummary, { type ScoreSummary as ScoreSummaryT } from "../components/ScoreSummary.vue";
 import ConfidenceGauge from "../components/ConfidenceGauge.vue";
 import RoadmapTimeline, { type RoadmapStep } from "../components/RoadmapTimeline.vue";
+import ReportViewer from "../components/ReportViewer.vue";
+import type { CitationMeta } from "../types/citation";
 
 type Grade = "HIGH" | "MED" | "LOW" | string;
 type Verdict = "해당" | "미해당" | "불명확" | string;
@@ -281,6 +272,9 @@ type VerifyResult = {
   scientific: ScientificOut;
   regulatory: RegulatoryOut;
   cross_validation: { overall_verdict: string };
+  citation_metadata?: CitationMeta[];
+  chart_data?: unknown;
+  pdf_path?: string | null;
   score_summary?: ScoreSummaryT;
   claim_verdicts?: Array<{
     claim: string;
@@ -292,7 +286,6 @@ type VerifyResult = {
   roadmap_steps?: RoadmapStep[];
 };
 
-const inputMode = ref<"text" | "pdf">("text");
 const language = ref<"ko" | "en">("ko");
 const domain = ref<string>("climate");
 const text = ref<string>("");
@@ -305,8 +298,7 @@ const rightTab = ref<"claims" | "report">("claims");
 const devMode = ref(false);
 
 const canSubmit = computed(() => {
-  if (inputMode.value === "text") return text.value.trim().length >= 5;
-  return !!pdfFile.value;
+  return text.value.trim().length >= 5 || !!pdfFile.value;
 });
 
 function onPickPdf(e: Event) {
@@ -356,21 +348,16 @@ async function confirm() {
     return;
   }
 
-  if (inputMode.value === "pdf") {
-    // 현재 백엔드는 PDF input_type 미지원
-    errorMsg.value = "현재 백엔드는 PDF 업로드를 지원하지 않습니다. 텍스트 입력으로 진행해 주세요.";
-    return;
-  }
-
   isLoading.value = true;
   try {
-    const resp = await fetch("/verify", {
+    const fd = new FormData();
+    fd.append("content", text.value);
+    if (pdfFile.value) {
+      fd.append("pdf", pdfFile.value);
+    }
+    const resp = await fetch("/verify/upload", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        input_type: "text",
-        content: text.value
-      })
+      body: fd
     });
     if (!resp.ok) {
       const t = await resp.text();
@@ -387,6 +374,23 @@ async function confirm() {
 async function copyReport() {
   if (!result.value) return;
   await navigator.clipboard.writeText(result.value.report_markdown ?? "");
+}
+
+async function downloadMarkdownFile() {
+  if (!result.value?.report_markdown?.trim()) return;
+  const resp = await fetch("/report/markdown", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ markdown: result.value.report_markdown, title: "기술 검증 보고서" })
+  });
+  if (!resp.ok) return;
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "verification_report.md";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 const devJson = computed(() => {
@@ -480,6 +484,22 @@ function buildDevMock(): VerifyResult {
       ]
     },
     cross_validation: { overall_verdict: "조건부 가능" },
+    citation_metadata: [
+      {
+        ref_id: 1,
+        apa7_citation: "Author, A. (2023). Example paper title. Journal Name, 1(2), 3–4.",
+        url: "https://arxiv.org/abs/2301.00000",
+        raw_text: "초록/스니펫 예시 인용문입니다.",
+        source_type: "paper"
+      },
+      {
+        ref_id: 2,
+        apa7_citation: "Regulatory Agency. (2024). Example rulemaking notice.",
+        url: "https://www.federalregister.gov",
+        raw_text: null,
+        source_type: "regulation"
+      }
+    ],
     score_summary: {
       trl: "TRL 5~6",
       mrl: "MRL 5~6",

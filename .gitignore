@@ -6,6 +6,8 @@ __pycache__/
 .DS_Store
 .cache/
 backend/reports/
+# Chroma 로컬 영속 DB(런타임에 생성·변경됨)
+backend/data/chroma/*.sqlite3
 data/dart/**
 !data/dart/
 !data/dart/README.md

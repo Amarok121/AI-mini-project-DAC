@@ -10,9 +10,8 @@ from app.core.config import settings
 
 def _patch_langchain_debug_compat() -> None:
     """
-    `langchain_core`가 콜백 설정 중 `langchain.debug`를 조회한다.
-    일부 환경(메타 패키지/버전 조합)에서는 해당 속성이 없어 런타임 오류가 날 수 있어
-    안전한 기본값(False)을 제공한다.
+    `langchain_core`가 `langchain.debug` / `langchain.verbose` 등을 조회한다.
+    메타 패키지에 속성이 없을 때 기본값(False)을 둔다.
     """
 
     try:
@@ -20,6 +19,8 @@ def _patch_langchain_debug_compat() -> None:
 
         if not hasattr(langchain, "debug"):
             setattr(langchain, "debug", False)
+        if not hasattr(langchain, "verbose"):
+            setattr(langchain, "verbose", False)
     except Exception:  # noqa: BLE001
         pass
 
