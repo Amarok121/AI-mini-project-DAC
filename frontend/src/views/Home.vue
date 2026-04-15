@@ -97,9 +97,13 @@
                 <div style="font-size: 12px; font-weight: 900; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase">
                   최종 판단
                 </div>
-                <div class="summary-text" style="margin-top: 8px">
-                  {{ summaryText }}
-                </div>
+                <div
+                  v-if="summaryHtml"
+                  class="summary-text summary-md"
+                  style="margin-top: 8px"
+                  v-html="summaryHtml"
+                />
+                <div v-else class="summary-text" style="margin-top: 8px">근거를 바탕으로 결과를 요약합니다.</div>
                 <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap">
                   <span class="badge neutral">Verdict: {{ result.cross_validation?.overall_verdict ?? "—" }}</span>
                   <span class="badge" :class="badgeClass(scientificGrade)">Scientific: {{ scientificGrade ?? "—" }}</span>
@@ -253,6 +257,7 @@ import {
   scoreSummaryFromChart,
   type ApiChartData
 } from "../utils/chartData";
+import { renderMarkdownSafe } from "../utils/renderMarkdown";
 
 type Grade = "HIGH" | "MED" | "LOW" | string;
 type Verdict = "해당" | "미해당" | "불명확" | string;
@@ -437,14 +442,22 @@ const displayRoadmap = computed((): RoadmapStep[] => {
   return result.value?.roadmap_steps ?? [];
 });
 
-const summaryText = computed(() => {
+/** 결과 요약 카드의「최종 판단」본문 — 보고서의 Executive Summary 구간을 마크다운으로 렌더 */
+const summaryMarkdownSlice = computed(() => {
   const md = result.value?.report_markdown ?? "";
-  if (!md.trim()) return "근거를 바탕으로 결과를 요약합니다.";
-  // Executive Summary 섹션이 있으면 그 주변을 우선 사용
-  const idx = md.indexOf("## 1. Executive Summary");
-  const slice = idx >= 0 ? md.slice(idx, idx + 700) : md.slice(0, 700);
-  // 마크다운을 아주 단순히 정리 (UI용 짧은 요약)
-  return slice.replace(/[#*_`>-]/g, "").replace(/\n{2,}/g, "\n").trim().slice(0, 420);
+  if (!md.trim()) return "";
+  const start = md.indexOf("## 1. Executive Summary");
+  if (start >= 0) {
+    const rest = md.slice(start);
+    const next = rest.indexOf("\n## 2.");
+    return (next >= 0 ? rest.slice(0, next) : rest.slice(0, 1400)).trim();
+  }
+  return md.slice(0, 900).trim();
+});
+
+const summaryHtml = computed(() => {
+  const src = summaryMarkdownSlice.value;
+  return src ? renderMarkdownSafe(src) : "";
 });
 
 async function confirm() {
