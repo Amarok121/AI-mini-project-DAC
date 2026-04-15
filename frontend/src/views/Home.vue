@@ -57,6 +57,19 @@
           <div class="error" v-if="errorMsg">{{ errorMsg }}</div>
         </div>
 
+        <div v-if="isLoading && !devMode" class="verify-progress" role="status" aria-live="polite">
+          <div class="verify-progress-head">
+            <span class="verify-progress-pct">처리 중… {{ loadingPercent }}%</span>
+            <span class="verify-progress-msg">{{ loadingMessage }}</span>
+          </div>
+          <div class="verify-progress-track" aria-hidden="true">
+            <div class="verify-progress-fill" :style="{ width: loadingPercent + '%' }" />
+          </div>
+          <p class="verify-progress-note">
+            서버가 한 번에 결과를 돌려주므로, 표시는 예상 단계를 순환합니다(실제 처리 순서와 다를 수 있습니다).
+          </p>
+        </div>
+
         <div class="actions">
           <button type="button" class="btn btn-secondary" @click="clearAll" :disabled="isLoading">Clear</button>
           <button type="button" class="btn primary" @click="confirm" :disabled="isLoading || !canSubmit">
@@ -228,7 +241,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import ScoreSummary from "../components/ScoreSummary.vue";
 import ConfidenceGauge from "../components/ConfidenceGauge.vue";
 import RoadmapTimeline, { type RoadmapStep } from "../components/RoadmapTimeline.vue";
@@ -312,6 +325,52 @@ const pdfFile = ref<File | null>(null);
 const pdfInputRef = ref<HTMLInputElement | null>(null);
 
 const isLoading = ref(false);
+const loadingPercent = ref(0);
+const loadingMessage = ref("");
+let loadingMsgTimer: ReturnType<typeof setInterval> | null = null;
+let loadingPctTimer: ReturnType<typeof setInterval> | null = null;
+
+const LOADING_MESSAGES = [
+  "요청을 서버로 보내는 중…",
+  "클레임 추출 중…",
+  "과학 에이전트: 논문·근거를 찾는 중…",
+  "산업 에이전트: 뉴스·특허를 살펴보는 중…",
+  "규제 에이전트: 법령·리스크를 검토하는 중…",
+  "교차 검증을 실행하는 중…",
+  "기업 맥락을 보강하는 중…",
+  "보고서 초안을 정리하는 중…"
+];
+
+function stopLoadingUX() {
+  if (loadingMsgTimer != null) {
+    clearInterval(loadingMsgTimer);
+    loadingMsgTimer = null;
+  }
+  if (loadingPctTimer != null) {
+    clearInterval(loadingPctTimer);
+    loadingPctTimer = null;
+  }
+  loadingPercent.value = 0;
+  loadingMessage.value = "";
+}
+
+function startLoadingUX() {
+  stopLoadingUX();
+  loadingPercent.value = 5;
+  loadingMessage.value = LOADING_MESSAGES[0];
+  let idx = 0;
+  loadingMsgTimer = setInterval(() => {
+    idx = (idx + 1) % LOADING_MESSAGES.length;
+    loadingMessage.value = LOADING_MESSAGES[idx] ?? "";
+  }, 2400);
+  loadingPctTimer = setInterval(() => {
+    const p = loadingPercent.value;
+    if (p >= 92) return;
+    const bump = (92 - p) * 0.055 + Math.random() * 2.5;
+    loadingPercent.value = Math.min(92, Math.round(p + bump));
+  }, 380);
+}
+
 const errorMsg = ref<string>("");
 const result = ref<VerifyResult | null>(null);
 const rightTab = ref<"claims" | "report">("claims");
@@ -398,6 +457,7 @@ async function confirm() {
   }
 
   isLoading.value = true;
+  startLoadingUX();
   try {
     const fd = new FormData();
     fd.append("content", text.value);
@@ -413,9 +473,21 @@ async function confirm() {
       throw new Error(`요청 실패 (${resp.status}): ${t}`);
     }
     result.value = (await resp.json()) as VerifyResult;
+    if (loadingPctTimer != null) {
+      clearInterval(loadingPctTimer);
+      loadingPctTimer = null;
+    }
+    if (loadingMsgTimer != null) {
+      clearInterval(loadingMsgTimer);
+      loadingMsgTimer = null;
+    }
+    loadingPercent.value = 100;
+    loadingMessage.value = "응답을 받았습니다.";
+    await new Promise((r) => setTimeout(r, 320));
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : "알 수 없는 오류";
   } finally {
+    stopLoadingUX();
     isLoading.value = false;
   }
 }
@@ -594,6 +666,10 @@ function buildDevMock(): VerifyResult {
 onMounted(() => {
   const url = new URL(window.location.href);
   setDevMode(url.searchParams.get("dev") === "1");
+});
+
+onUnmounted(() => {
+  stopLoadingUX();
 });
 </script>
 

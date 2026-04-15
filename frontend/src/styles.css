@@ -573,6 +573,62 @@ textarea {
   resize: vertical;
 }
 
+/* 검증 요청 로딩(단계 문구 + 시뮬레이션 %) */
+.verify-progress {
+  margin: 0 16px 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand), transparent 92%) inset;
+}
+
+.verify-progress-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.verify-progress-pct {
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--text-strong);
+  letter-spacing: 0.02em;
+}
+
+.verify-progress-msg {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+  min-height: 1.35em;
+}
+
+.verify-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(36, 48, 65, 0.45);
+  overflow: hidden;
+}
+
+html[data-theme="light"] .verify-progress-track {
+  background: #e2e8f0;
+}
+
+.verify-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand-2), var(--brand));
+  transition: width 0.25s ease-out;
+}
+
+.verify-progress-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .actions {
   display: flex;
   gap: 10px;
