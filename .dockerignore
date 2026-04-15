@@ -1,0 +1,22 @@
+.git
+.DS_Store
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Node
+**/node_modules/
+**/dist/
+
+# Local data / caches (mounted as volumes instead)
+data/chroma/
+data/dart/
+.cache/
+
+# Reports / outputs
+reports/

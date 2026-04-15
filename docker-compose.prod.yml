@@ -1,0 +1,47 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Persisted vector DB
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      # Optional local company docs (DART/IR PDFs) mounted read-only
+      DART_DOCS_DIR: /app/data/dart
+      # In prod, frontend and backend are same-origin via nginx proxy,
+      # but keep this permissive default for direct backend access if needed.
+      CORS_ORIGINS: http://localhost
+    volumes:
+      - ./data/chroma:/app/data/chroma
+      - ./data/dart:/app/data/dart:ro
+      - ./.cache/huggingface:/root/.cache/huggingface
+    expose:
+      - "8000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+  ingest:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.ingest
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      DART_DOCS_DIR: /app/data/dart
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./scripts:/app/scripts:ro
+      - ./data:/app/data
+      - ./data/chroma:/app/data/chroma
+      - ./.cache/huggingface:/root/.cache/huggingface
+    profiles:
+      - ingest
