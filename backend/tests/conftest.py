@@ -14,6 +14,8 @@ def _patch_langchain_debug_compat() -> None:
             setattr(langchain, "debug", False)
         if not hasattr(langchain, "verbose"):
             setattr(langchain, "verbose", False)
+        if not hasattr(langchain, "llm_cache"):
+            setattr(langchain, "llm_cache", None)
     except Exception:  # noqa: BLE001
         pass
 

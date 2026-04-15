@@ -10,7 +10,7 @@ from app.core.config import settings
 
 def _patch_langchain_debug_compat() -> None:
     """
-    `langchain_core`가 `langchain.debug` / `langchain.verbose` 등을 조회한다.
+    `langchain_core`가 `langchain.debug` / `verbose` / `llm_cache` 등을 조회한다.
     메타 패키지에 속성이 없을 때 기본값(False)을 둔다.
     """
 
@@ -21,6 +21,8 @@ def _patch_langchain_debug_compat() -> None:
             setattr(langchain, "debug", False)
         if not hasattr(langchain, "verbose"):
             setattr(langchain, "verbose", False)
+        if not hasattr(langchain, "llm_cache"):
+            setattr(langchain, "llm_cache", None)
     except Exception:  # noqa: BLE001
         pass
 
