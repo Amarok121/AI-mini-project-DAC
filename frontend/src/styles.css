@@ -581,6 +581,10 @@ textarea {
   background: rgba(23, 31, 43, 0.55);
 }
 
+html[data-theme="light"] .actions {
+  background: var(--card-2);
+}
+
 .btn {
   border: 1px solid var(--border);
   background: rgba(18, 25, 35, 0.9);
@@ -590,6 +594,68 @@ textarea {
   font-size: 14px;
   cursor: pointer;
   color: var(--text);
+}
+
+/* 액션 영역 보조 버튼: 다크·라이트 모두에서 라벨은 흰색 유지 */
+.actions .btn-secondary {
+  color: #ffffff;
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.actions .btn-secondary:hover:not(:disabled) {
+  background: #334155;
+  border-color: rgba(203, 213, 225, 0.55);
+}
+
+.actions .btn-secondary:disabled {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* 파일 선택: 네이티브 input 숨기고 버튼 스타일 label */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.file-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.file-upload-row.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+label.btn-file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  width: fit-content;
+  cursor: pointer;
+  user-select: none;
+}
+
+html[data-theme="light"] label.btn-file {
+  color: var(--text);
+  background: var(--card);
+  border-color: var(--border);
+}
+
+html[data-theme="light"] label.btn-file:hover {
+  border-color: var(--focus-border);
+  background: var(--tab-active-bg);
 }
 
 @supports not (color: color-mix(in srgb, white, black)) {

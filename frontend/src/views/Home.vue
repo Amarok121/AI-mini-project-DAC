@@ -21,23 +21,12 @@
         </div>
 
         <div class="card-body" style="display: flex; flex-direction: column; gap: 14px">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-            <div class="field">
-              <label>언어</label>
-              <select v-model="language">
-                <option value="ko">한국어 (Korean)</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>도메인</label>
-              <select v-model="domain">
-                <option value="climate">기후/탄소</option>
-                <option value="it">IT / Software</option>
-                <option value="bio">Bio / Medical</option>
-                <option value="mfg">Manufacturing</option>
-              </select>
-            </div>
+          <div class="field">
+            <label>언어</label>
+            <select v-model="language">
+              <option value="ko">한국어 (Korean)</option>
+              <option value="en">English</option>
+            </select>
           </div>
 
           <div class="field" style="flex: 1">
@@ -49,7 +38,18 @@
           </div>
           <div class="field">
             <label>참고 PDF (선택)</label>
-            <input type="file" accept="application/pdf" @change="onPickPdf" />
+            <div class="file-upload-row" :class="{ 'is-disabled': isLoading }">
+              <input
+                id="home-pdf-input"
+                ref="pdfInputRef"
+                type="file"
+                class="sr-only"
+                accept="application/pdf"
+                :disabled="isLoading"
+                @change="onPickPdf"
+              />
+              <label for="home-pdf-input" class="btn btn-file">PDF 파일 선택</label>
+            </div>
             <div class="hint" v-if="pdfFile">{{ pdfFile.name }} ({{ Math.round(pdfFile.size / 1024) }}KB)</div>
             <div class="hint" v-else>업로드 시 서버에서 텍스트만 추출해 검증에 포함합니다(파일은 저장하지 않습니다).</div>
           </div>
@@ -58,8 +58,8 @@
         </div>
 
         <div class="actions">
-          <button class="btn" @click="clearAll" :disabled="isLoading">Clear</button>
-          <button class="btn primary" @click="confirm" :disabled="isLoading || !canSubmit">
+          <button type="button" class="btn btn-secondary" @click="clearAll" :disabled="isLoading">Clear</button>
+          <button type="button" class="btn primary" @click="confirm" :disabled="isLoading || !canSubmit">
             {{ isLoading ? "분석 중..." : "Confirm & Analyze" }}
           </button>
         </div>
@@ -147,6 +147,7 @@
                 <ReportViewer
                   :markdown="result.report_markdown || ''"
                   :citations="result.citation_metadata"
+                  :chart-data="result.chart_data"
                   @copy="copyReport"
                 />
               </div>
@@ -306,9 +307,9 @@ type VerifyResult = {
 };
 
 const language = ref<"ko" | "en">("ko");
-const domain = ref<string>("climate");
 const text = ref<string>("");
 const pdfFile = ref<File | null>(null);
+const pdfInputRef = ref<HTMLInputElement | null>(null);
 
 const isLoading = ref(false);
 const errorMsg = ref<string>("");
@@ -328,6 +329,9 @@ function onPickPdf(e: Event) {
 function clearAll() {
   text.value = "";
   pdfFile.value = null;
+  if (pdfInputRef.value) {
+    pdfInputRef.value.value = "";
+  }
   errorMsg.value = "";
   result.value = null;
 }
