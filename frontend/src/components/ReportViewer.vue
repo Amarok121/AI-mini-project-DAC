@@ -159,6 +159,16 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   vertical-align: top;
 }
 
+.report-md :deep(.katex) {
+  font-size: 1em;
+  color: var(--text);
+}
+
+.report-md :deep(.katex-display) {
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+
 .citation-panel {
   margin-top: 16px;
   padding-top: 12px;

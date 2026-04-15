@@ -89,7 +89,8 @@
                 </div>
                 <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap">
                   <span class="badge neutral">Verdict: {{ result.cross_validation?.overall_verdict ?? "—" }}</span>
-                  <span class="badge" :class="badgeClass(result.scientific?.overall_grade)">Scientific: {{ result.scientific?.overall_grade ?? "—" }}</span>
+                  <span class="badge" :class="badgeClass(scientificGrade)">Scientific: {{ scientificGrade ?? "—" }}</span>
+                  <span class="badge" :class="badgeClass(result.industrial?.overall_level)">Industrial: {{ result.industrial?.overall_level ?? "—" }}</span>
                   <span class="badge" :class="badgeClass(result.regulatory?.confidence)"
                     >Regulatory: {{ result.regulatory?.verdict ?? "—" }} ({{ result.regulatory?.confidence ?? "—" }})</span
                   >
@@ -99,7 +100,7 @@
               <div class="divider-v" />
 
               <div style="flex: 0.95; min-width: 0">
-                <ScoreSummary :score-summary="result.score_summary" />
+                <ScoreSummary :score-summary="displayScoreSummary ?? undefined" />
               </div>
             </div>
           </div>
@@ -119,8 +120,8 @@
             <div v-if="!result" class="hint">결과가 생성되면 클레임 판정/보고서가 표시됩니다.</div>
             <div v-else>
               <div v-if="rightTab === 'claims'" style="display: flex; flex-direction: column; gap: 12px">
-                <div v-if="result.claim_verdicts?.length" style="display: flex; flex-direction: column; gap: 12px">
-                  <div v-for="(cv, i) in result.claim_verdicts" :key="i" class="card" style="border-radius: 10px">
+                <div v-if="displayClaimRows.length" style="display: flex; flex-direction: column; gap: 12px">
+                  <div v-for="(cv, i) in displayClaimRows" :key="i" class="card" style="border-radius: 10px">
                     <div class="card-body" style="display: grid; grid-template-columns: 1.2fr 0.9fr 0.9fr; gap: 14px">
                       <div>
                         <div class="hint" style="font-weight: 800; letter-spacing: 0.06em">CLAIM</div>
@@ -139,7 +140,7 @@
                     </div>
                   </div>
                 </div>
-                <div v-else class="hint">claim_verdicts가 아직 없어서, 기존 claims/cross_validation 기반 표시로 대체 예정입니다.</div>
+                <div v-else class="hint">클레임별 판정(chart_data.claim_verdicts)이 없습니다.</div>
               </div>
 
               <div v-else>
@@ -204,7 +205,7 @@
             <div style="font-weight: 900">Roadmap</div>
           </div>
           <div class="card-body">
-            <RoadmapTimeline :steps="result?.roadmap_steps" />
+            <RoadmapTimeline :steps="displayRoadmap" />
           </div>
         </div>
 
@@ -227,11 +228,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import ScoreSummary, { type ScoreSummary as ScoreSummaryT } from "../components/ScoreSummary.vue";
+import ScoreSummary from "../components/ScoreSummary.vue";
 import ConfidenceGauge from "../components/ConfidenceGauge.vue";
 import RoadmapTimeline, { type RoadmapStep } from "../components/RoadmapTimeline.vue";
 import ReportViewer from "../components/ReportViewer.vue";
 import type { CitationMeta } from "../types/citation";
+import {
+  claimRowsFromChart,
+  roadmapFromChart,
+  scoreSummaryFromChart,
+  type ApiChartData
+} from "../utils/chartData";
 
 type Grade = "HIGH" | "MED" | "LOW" | string;
 type Verdict = "해당" | "미해당" | "불명확" | string;
@@ -253,10 +260,21 @@ type PaperEvidence = {
 };
 
 type ScientificOut = {
-  overall_grade: Grade;
+  overall_grade?: Grade;
+  confidence?: Grade;
   summary: string;
   error?: string | null;
   papers: PaperEvidence[];
+  trl_estimate?: string;
+};
+
+type IndustrialOut = {
+  overall_level?: Grade;
+  summary?: string;
+  error?: string | null;
+  mrl_estimate?: string;
+  news?: unknown[];
+  patents?: unknown[];
 };
 
 type RegulatoryOut = {
@@ -264,18 +282,19 @@ type RegulatoryOut = {
   confidence: Grade;
   evidence_summary: string;
   source_urls: string[];
+  cri_estimate?: string;
 };
 
 type VerifyResult = {
   report_markdown: string;
   claims: unknown[];
   scientific: ScientificOut;
+  industrial?: IndustrialOut;
   regulatory: RegulatoryOut;
   cross_validation: { overall_verdict: string };
   citation_metadata?: CitationMeta[];
-  chart_data?: unknown;
+  chart_data?: ApiChartData;
   pdf_path?: string | null;
-  score_summary?: ScoreSummaryT;
   claim_verdicts?: Array<{
     claim: string;
     verdict: string;
@@ -328,6 +347,32 @@ function badgeClass(level?: string) {
   if (v === "LOW") return "low";
   return "neutral";
 }
+
+const scientificGrade = computed(() => {
+  const s = result.value?.scientific;
+  return s?.overall_grade ?? s?.confidence ?? "";
+});
+
+const displayScoreSummary = computed(() =>
+  scoreSummaryFromChart(
+    result.value?.chart_data,
+    result.value?.scientific,
+    result.value?.industrial,
+    result.value?.regulatory
+  )
+);
+
+const displayClaimRows = computed(() => {
+  const fromChart = claimRowsFromChart(result.value?.chart_data);
+  if (fromChart.length) return fromChart;
+  return result.value?.claim_verdicts ?? [];
+});
+
+const displayRoadmap = computed((): RoadmapStep[] => {
+  const fromChart = roadmapFromChart(result.value?.chart_data);
+  if (fromChart.length) return fromChart as RoadmapStep[];
+  return result.value?.roadmap_steps ?? [];
+});
 
 const summaryText = computed(() => {
   const md = result.value?.report_markdown ?? "";
@@ -434,8 +479,16 @@ function buildDevMock(): VerifyResult {
         status: "달성"
       }
     ],
+    industrial: {
+      overall_level: "MED",
+      mrl_estimate: "MRL 5~6",
+      summary: "산업 뉴스/특허 예시입니다.",
+      news: [],
+      patents: []
+    },
     scientific: {
       overall_grade: "MED",
+      trl_estimate: "TRL 5~6",
       summary: "초록 기반 evidence pack 예시입니다.",
       papers: [
         {
@@ -475,6 +528,7 @@ function buildDevMock(): VerifyResult {
     regulatory: {
       verdict: "불명확",
       confidence: "MED",
+      cri_estimate: "CRI 3~4",
       evidence_summary:
         "정부/공공 텍스트와 웹 스니펫을 기반으로 요약한 예시다. 적용 가능 인센티브/규제는 기술 범위·운영지역·보고/측정 기준에 따라 달라질 수 있어 불명확 처리한다. 전문가 검토가 필요하다.",
       source_urls: [
@@ -484,6 +538,15 @@ function buildDevMock(): VerifyResult {
       ]
     },
     cross_validation: { overall_verdict: "조건부 가능" },
+    chart_data: {
+      score_summary: {
+        trl: { value: 5, min: 1, max: 9, label: "기술개발 단계", rationale: "" },
+        mrl: { value: 6, min: 1, max: 10, label: "시제품 단계", rationale: "" },
+        cri: { value: 3, min: 1, max: 6, label: "규제 검토 단계", rationale: "" }
+      },
+      claim_verdicts: [],
+      roadmap_steps: []
+    },
     citation_metadata: [
       {
         ref_id: 1,
@@ -500,19 +563,6 @@ function buildDevMock(): VerifyResult {
         source_type: "regulation"
       }
     ],
-    score_summary: {
-      trl: "TRL 5~6",
-      mrl: "MRL 5~6",
-      cri: "CRI 3~4",
-      trl_level: "MED",
-      mrl_level: "MED",
-      cri_level: "MED",
-      bars: [
-        { label: "Scientific", value: 62, level: "MED" },
-        { label: "Industrial", value: 58, level: "MED" },
-        { label: "Regulatory", value: 42, level: "LOW" }
-      ]
-    },
     claim_verdicts: [
       {
         claim: "1,000시간 연속 운전 성공",
