@@ -384,13 +384,6 @@ def _contains_hangul(text: str) -> bool:
     return bool(re.search(r"[가-힣]", text or ""))
 
 
-def _paper_evidence(scientific: ScientificAgentOutput) -> str:
-    if not scientific.papers:
-        return "논문='N/A'"
-    paper = scientific.papers[0]
-    return f"논문='{paper.title}' url='{paper.url}'"
-
-
 def _tokenize_for_overlap(text: str) -> set[str]:
     return {tok for tok in re.findall(r"[A-Za-z가-힣0-9]{3,}", text or "")}
 
@@ -534,7 +527,6 @@ def build_news_specific_evidence(
     if target is None and industrial.news:
         target = industrial.news[0]
 
-    news_text = f"{target.title if target else ''} {target.summary if target else ''} {target.excerpt if target else ''}"
     paper = _resolve_paper_by_title(scientific, matched_paper_title)
     if paper is None and not matched_paper_title.strip():
         # 매칭 제목 누락 시 선택 로직을 재사용해 보조 매칭 수행.
