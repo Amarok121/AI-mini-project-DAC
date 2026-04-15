@@ -79,6 +79,23 @@ pytest -q
 docker compose up --build
 ```
 
+## Production-style Docker run (recommended for deploy)
+프론트는 **정적 빌드 + nginx 서빙**, 백엔드는 **이미지 실행**(바인드 마운트 없음) 형태로 동작합니다.
+프론트 nginx가 `/verify/*`, `/report/*`를 백엔드로 프록시하므로, 브라우저는 **한 도메인(동일 origin)** 으로만 접근합니다.
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- 접속: `http://localhost:5173`
+- 헬스체크: `http://localhost:5173/health`
+
+### PDF 업로드 (nginx)
+`/verify/upload`는 PDF 업로드를 포함할 수 있으므로 nginx에 업로드 제한/타임아웃을 설정했습니다.
+
+- 업로드 제한: `client_max_body_size 20m` (백엔드가 15MB로 최종 제한)
+- 장시간 요청: `proxy_read_timeout` 등을 600s로 확대
+
 ## First-time Docker setup
 현재 프로젝트는 별도 `chroma` 컨테이너 대신 로컬 저장형 Chroma(`PersistentClient`)를 사용합니다.
 벡터 데이터는 호스트의 `data/chroma/` 디렉토리에 저장되며, backend/ingest 컨테이너가 이를 공유합니다.
@@ -128,6 +145,12 @@ curl http://localhost:8000/health
 - `data/chroma/`를 삭제했을 때
 - 청킹/임베딩 로직이 바뀌어서 기존 벡터 데이터를 새 기준으로 다시 만들고 싶을 때
 
+프로덕션 compose를 쓰는 경우에는 아래처럼 실행합니다.
+
+```bash
+docker compose -f docker-compose.prod.yml --profile ingest run --rm ingest
+```
+
 이미 적재된 상태라면 ingest를 다시 돌릴 필요는 없습니다.
 현재 ingest는 기존 메타데이터를 보고 이미 적재된 PDF를 파싱 없이 skip합니다.
 
@@ -139,3 +162,7 @@ curl http://localhost:8000/health
 - 문서 적재 결과는 `data/chroma/` 로컬 디렉토리에 저장됩니다.
 - 팀원이 `git pull`만 받는 경우 벡터 데이터는 자동 공유되지 않으므로, 각자 `data/chroma/`를 보유하지 않았다면 한 번은 ingest를 실행해야 합니다.
 - 동일 문서로 ingest를 다시 실행해도 청크 id 기준으로 중복 적재는 skip됩니다.
+
+## Data files
+- `data/dart/**`와 `data/chroma/**`는 **로컬 실행/데모 데이터**로 간주하며 Git에 포함되지 않습니다.
+  - 회사 문서(PDF)는 각자 `data/dart/{회사명}/`에 넣고 ingest로 적재합니다.
