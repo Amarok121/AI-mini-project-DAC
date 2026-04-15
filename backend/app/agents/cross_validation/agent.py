@@ -1,37 +1,40 @@
-"""CrossValidator 에이전트 진입점: LangChain `cross_validator_chain` 래퍼."""
+"""CrossValidator 에이전트 진입점."""
 
 from __future__ import annotations
 
-from app.schemas.claim import Claim
 from app.schemas.agent_result import (
-    ScientificAgentOutput,
+    ClaimVerificationResult,
+    CrossValidatorOutput,
     IndustrialAgentOutput,
     RegulatoryAgentOutput,
-    CrossValidatorOutput,
+    ScientificAgentOutput,
 )
+from app.schemas.claim import Claim, ClaimJudgement
 
-from .lc_chain import cross_validator_chain
+from .confidence_scorer import combine_credibility
+from .trl_mrl_cri import estimate_cri
 
-def _paper_to_selected(p: PaperResult) -> SelectedPaperDocument:
-    if p.semantic_scholar_id and p.arxiv_id:
-        src = "merged"
-    elif p.arxiv_id:
-        src = "arxiv"
-    elif p.semantic_scholar_id:
-        src = "semantic_scholar"
-    elif p.openalex_id:
-        src = "openalex"
-    else:
-        src = ""
-    return SelectedPaperDocument(
-        title=p.title,
-        primary_url=p.url,
-        pdf_url=p.pdf_url,
-        doi=p.doi,
-        semantic_scholar_id=p.semantic_scholar_id,
-        openalex_id=p.openalex_id,
-        arxiv_id=p.arxiv_id,
-        source_system=src,
+
+def _adapt_claim_verification_result(result: ClaimVerificationResult) -> ClaimJudgement:
+    verdict_map = {
+        '조건부 가능': '지지',
+        '규제 리스크 존재': '반박',
+        '검증 실패 (허구/왜곡 의심)': '반박',
+        '판단 보류': '불확실',
+        '판단 보류 (근거 부족)': '불확실',
+    }
+    flags_text = ', '.join(result.flags)
+    return ClaimJudgement(
+        claim_id=result.claim.claim_id,
+        judgement=verdict_map.get(result.verdict, '불확실'),
+        overall_confidence=result.credibility,
+        scientific_confidence=result.credibility,
+        industrial_confidence=result.credibility,
+        regulatory_confidence='LOW',
+        rationale_summary=', '.join(
+            [item for item in [result.verdict, result.trl, result.mrl, result.cri, flags_text] if item]
+        ),
+        ref_ids=[],
     )
 
 
@@ -41,14 +44,37 @@ async def run(
     industrial: IndustrialAgentOutput,
     regulatory: RegulatoryAgentOutput,
 ) -> CrossValidatorOutput:
-    """
-    [CVA 최종 구현: Evidence Pack 기반 검증]
-    앞선 에이전트들이 제공한 '완벽한' Evidence Pack을 대조하여 
-    Hype Index(2.0x 룰), 조건 누락, 규제 충돌을 판정합니다.
-    """
-    return await cross_validator_chain.ainvoke({
-        "claims": claims,
-        "scientific": scientific,
-        "industrial": industrial,
-        "regulatory": regulatory
-    })
+    # TODO: origin/cross_validation의 evaluator/lc_chain 결과를 이 어댑터에 연결해
+    # ClaimJudgement 기반 응답과 리포트 호환성을 유지한 채 고도화한다.
+    raw_results: list[ClaimVerificationResult] = []
+    for claim in claims:
+        credibility = combine_credibility(scientific.overall_grade, industrial.overall_level)
+        verdict = '조건부 가능' if regulatory.verdict != '미해당' else '규제 리스크 존재'
+        flags = [] if regulatory.verdict != '미해당' else ['규제 리스크']
+        raw_results.append(
+            ClaimVerificationResult(
+                claim=claim,
+                credibility=credibility,
+                verdict=verdict,
+                flags=flags,
+                trl=scientific.trl_estimate,
+                mrl=industrial.mrl_estimate,
+                cri=estimate_cri(),
+            )
+        )
+
+    adapted_results = [_adapt_claim_verification_result(result) for result in raw_results]
+    overall_confidence = adapted_results[0].overall_confidence if adapted_results else 'LOW'
+    scientific_confidence = adapted_results[0].scientific_confidence if adapted_results else 'LOW'
+    industrial_confidence = adapted_results[0].industrial_confidence if adapted_results else 'LOW'
+    regulatory_confidence = adapted_results[0].regulatory_confidence if adapted_results else 'LOW'
+
+    return CrossValidatorOutput(
+        results=adapted_results,
+        overall_verdict='조건부 가능',
+        overall_confidence=overall_confidence,
+        scientific_confidence=scientific_confidence,
+        industrial_confidence=industrial_confidence,
+        regulatory_confidence=regulatory_confidence,
+        conflicts=[],
+    )

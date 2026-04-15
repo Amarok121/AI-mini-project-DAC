@@ -2,7 +2,21 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from .claim import Claim
+from .claim import Claim, ClaimJudgement
+from .source import SourceItem
+
+
+AgentStatus = Literal['success', 'error']
+ConfidenceLevel = Literal['HIGH', 'MED', 'LOW']
+
+
+class AgentResultBase(BaseModel):
+    agent_name: str = ''
+    status: AgentStatus = 'success'
+    error: Optional[str] = None
+    summary: str = ''
+    confidence: ConfidenceLevel = 'LOW'
+    sources: list[SourceItem] = Field(default_factory=list)
 
 
 class SelectedPaperDocument(BaseModel):
@@ -27,15 +41,35 @@ class SelectedRegulatoryDocument(BaseModel):
     source: str = Field(default='', description='law.go.kr | eur-lex | federalregister.gov 등')
 
 
+class RegulatoryEvidenceItem(BaseModel):
+    """
+    규제/인센티브 근거 팩 아이템.
+    논문 evidence(`PaperResult`)와 동일하게 요약/발췌/조건/한계/사유를 포함한다.
+    """
+
+    title: str = ''
+    url: str = ''
+    pdf_url: str = ''
+    source: str = ''
+    published_at: str = ''
+    summary: str = ''
+    excerpt: str = ''
+    key_point: str = ''
+    conditions: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    flags: list[str] = Field(default_factory=list)
+    reason: str = ''
+
+
 class PaperResult(BaseModel):
     title: str
-    authors: list[str] = []
+    authors: list[str] = Field(default_factory=list)
     year: int = 0
     journal: str = Field(default='', exclude=True)
     url: str = ''
     pdf_url: str = Field(default='', exclude=True)
     grade_score: float = 0.0
-    grade_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    grade_level: ConfidenceLevel = 'LOW'
     citation_count: int = Field(default=0, exclude=True)
     abstract: str = Field(default='', exclude=True)
     semantic_scholar_id: str = Field(default='', exclude=True)
@@ -44,6 +78,7 @@ class PaperResult(BaseModel):
     doi: str = Field(default='', exclude=True)
     summary: str = ''
     excerpt: str = ''
+    pdf_evidence: str = Field(default='', exclude=True)
     key_point: str = ''
     conditions: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
@@ -51,8 +86,6 @@ class PaperResult(BaseModel):
 
 
 class GradeDimensionScores(BaseModel):
-    """설계 §7.1 GRADE 가중치에 맞춘 자동화 스켈레톤 (0~1 구간 점수)."""
-
     study_design: float = Field(0.0, description='연구 설계 수준')
     bias_risk: float = Field(0.0, description='편향 위험 (높을수록 양호)')
     consistency_hint: float = Field(0.0, description='인용·일관성 힌트 (OpenAlex 등)')
@@ -62,11 +95,12 @@ class GradeDimensionScores(BaseModel):
     weighted_total: float = Field(0.0, description='가중 합산')
 
 
-class ScientificAgentOutput(BaseModel):
-    papers: list[PaperResult] = []
-    overall_grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
-    summary: str = ''
-    error: Optional[str] = None
+class ScientificResult(AgentResultBase):
+    papers: list[PaperResult] = Field(default_factory=list)
+    overall_grade: ConfidenceLevel = 'LOW'
+    trl_score: int = 1
+    trl_estimate: str = 'TRL 1~3'
+    trl_rationale: str = ''
     grade_breakdown: Optional[GradeDimensionScores] = None
     search_sources: list[str] = Field(default_factory=list)
 
@@ -81,7 +115,7 @@ class NewsEvaluationBreakdown(BaseModel):
 
 class NewsEvaluation(BaseModel):
     score: float = 0.0
-    grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    grade: ConfidenceLevel = 'LOW'
     breakdown: NewsEvaluationBreakdown = Field(default_factory=NewsEvaluationBreakdown)
     flags: list[str] = Field(default_factory=list)
     verdict: str = ''
@@ -102,7 +136,7 @@ class NewsResult(BaseModel):
     excerpt: str = ''
     summary: str = ''
     craap_score: float = 0.0
-    craap_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    craap_level: ConfidenceLevel = 'LOW'
     flags: list[str] = Field(default_factory=list)
     verdict: str = ''
     reason: str = ''
@@ -118,7 +152,7 @@ class PatentEvaluationBreakdown(BaseModel):
 
 class PatentEvaluation(BaseModel):
     score: float = 0.0
-    grade: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    grade: ConfidenceLevel = 'LOW'
     breakdown: PatentEvaluationBreakdown = Field(default_factory=PatentEvaluationBreakdown)
     flags: list[str] = Field(default_factory=list)
     verdict: str = ''
@@ -143,47 +177,39 @@ class PatentResult(BaseModel):
     summary: str = ''
     key_point: str = ''
     core_score: float = 0.0
-    core_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+    core_level: ConfidenceLevel = 'LOW'
     flags: list[str] = Field(default_factory=list)
     verdict: str = ''
     reason: str = ''
     evaluation: PatentEvaluation = Field(default_factory=PatentEvaluation)
 
 
-class IndustrialAgentOutput(BaseModel):
-    news: list[NewsResult] = []
-    patents: list[PatentResult] = []
-    overall_level: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
+class IndustrialResult(AgentResultBase):
+    news: list[NewsResult] = Field(default_factory=list)
+    patents: list[PatentResult] = Field(default_factory=list)
+    overall_level: ConfidenceLevel = 'LOW'
+    mrl_score: int = 1
     mrl_estimate: str = 'MRL 1~3'
-    summary: str = ''
-    error: Optional[str] = None
+    mrl_rationale: str = ''
 
 
-class RegulatoryAgentOutput(BaseModel):
+class RegulatoryResult(AgentResultBase):
     verdict: Literal['해당', '미해당', '불명확'] = '불명확'
     confidence: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
-    applicable_regulations: list[str] = []
-    incentives: list[str] = []
-    risks: list[str] = []
+    evidences: list[RegulatoryEvidenceItem] = Field(default_factory=list)
+    applicable_regulations: list[str] = Field(default_factory=list)
+    incentives: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
     requires_expert_review: bool = True
-    source_urls: list[str] = []
-    evidence_summary: str = Field(
-        default='',
-        description='교차검증·Report용 근거 팩 서술(수집·판단 요약)',
-    )
-    error: Optional[str] = None
+    source_urls: list[str] = Field(default_factory=list)
+    cri_score: int = 1
+    cri_estimate: str = 'CRI 1'
+    cri_rationale: str = ''
+    evidence_summary: str = ''
     reason: Optional[str] = None
-    extracted_law_candidates: list[str] = []
-    pipeline_notes: list[str] = []
+    extracted_law_candidates: list[str] = Field(default_factory=list)
+    pipeline_notes: list[str] = Field(default_factory=list)
     documents_for_validation: list[SelectedRegulatoryDocument] = Field(default_factory=list)
-
-
-class ClaimVerificationResult(BaseModel):
-    claim: Claim
-    credibility: Literal['HIGH', 'MED', 'LOW'] = 'LOW'
-    verdict: str = '판단 보류'
-    flags: list[str] = Field(default_factory=list)
-
 
 class PerformanceGapResult(BaseModel):
     metric: str
@@ -194,17 +220,38 @@ class PerformanceGapResult(BaseModel):
     description: str
     analyst_note: str
 
+
 class RegulatoryConflictResult(BaseModel):
     conflict_type: str
     severity: str
     description: str
     analyst_note: str
 
-class CrossValidatorOutput(BaseModel):
-    """CVA의 최종 분석 결과물"""
-    results: list[ClaimVerificationResult] = []
+
+class CrossValidationResult(AgentResultBase):
+    results: list[ClaimJudgement] = Field(default_factory=list)
     overall_verdict: str = '판단 보류'
-    conflicts: list[str] = []
-    performance_gaps: list[PerformanceGapResult] = []
-    regulatory_conflicts: list[RegulatoryConflictResult] = []
-    fake_claims_detected: list[Claim] = []
+    overall_confidence: ConfidenceLevel = 'LOW'
+    scientific_confidence: ConfidenceLevel = 'LOW'
+    industrial_confidence: ConfidenceLevel = 'LOW'
+    regulatory_confidence: ConfidenceLevel = 'LOW'
+    conflicts: list[str] = Field(default_factory=list)
+    performance_gaps: list[PerformanceGapResult] = Field(default_factory=list)
+    regulatory_conflicts: list[RegulatoryConflictResult] = Field(default_factory=list)
+    fake_claims_detected: list[Claim] = Field(default_factory=list)
+
+
+class ClaimVerificationResult(BaseModel):
+    claim: Claim
+    credibility: ConfidenceLevel = 'LOW'
+    verdict: str = '판단 보류'
+    flags: list[str] = Field(default_factory=list)
+    trl: str = 'TRL 1~3'
+    mrl: str = 'MRL 1~3'
+    cri: str = 'CRI 1~3'
+
+
+ScientificAgentOutput = ScientificResult
+IndustrialAgentOutput = IndustrialResult
+RegulatoryAgentOutput = RegulatoryResult
+CrossValidatorOutput = CrossValidationResult

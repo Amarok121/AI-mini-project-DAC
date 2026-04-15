@@ -1,0 +1,167 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-04-14T08:17:59.468928+00:00",
+    "request": {
+      "input_type": "text",
+      "content": "DAC 직접공기포집 기술로 연 1만 톤 규모 시범을 검토 중이다. 국내 탄소중립기본법·EU CBAM과의 정합성, IRA 45Q 수혜 가능성을 알고 싶다."
+    }
+  },
+  "data": {
+    "papers": [
+      {
+        "title": "Technologies to Capture CO$_2$ directly from Ambient Air",
+        "authors": [
+          "Gahyun Annie Lee",
+          "Xiaoyang Shi",
+          "Ah-Hyung Alissa Park"
+        ],
+        "year": 2022,
+        "url": "https://arxiv.org/abs/2211.00791v1",
+        "grade_score": 0.491,
+        "grade_level": "LOW",
+        "summary": "This review discusses the current state of Direct Air Capture (DAC) technology as a means to achieve negative emissions and mitigate climate change. It highlights advancements in surface chemistry, material synthesis, and engineering design that may enhance the deployment of DAC technologies. The findings suggest that new generations of DAC technologies could significantly impact large-scale carbon capture efforts. However, the abstract does not explicitly mention specific limitations or challenges faced by these technologies.",
+        "excerpt": "The review summarizes the present Direct Air Capture (DAC) technology that contribute to Negative Emissions.",
+        "key_point": "Advancements in DAC technology could enhance carbon capture efforts.",
+        "conditions": [],
+        "limitations": [],
+        "reason": "The abstract provides a broad overview without specific quantitative claims or detailed limitations."
+      },
+      {
+        "title": "Automated deep reinforcement learning for real-time scheduling strategy of multi-energy system integrated with post-carbon and direct-air carbon captured system",
+        "authors": [
+          "Tobi Michael Alabi",
+          "Nathan P. Lawrence",
+          "Lin Lu",
+          "Zaiyue Yang",
+          "R. Bhushan Gopaluni"
+        ],
+        "year": 2023,
+        "url": "https://arxiv.org/abs/2301.07768v1",
+        "grade_score": 0.42,
+        "grade_level": "LOW",
+        "summary": "This study proposes a novel deep reinforcement learning (DRL) agent for optimizing the scheduling of a multi-energy system integrated with carbon dioxide removal technology (CDRT), including DAC. The research evaluates various configurations using real-time data from a district in Arizona, demonstrating that the optimized DRL agent can effectively manage energy demands. The findings indicate improved performance over traditional algorithms, but the abstract does not detail specific limitations or challenges of the proposed method.",
+        "excerpt": "The simulation results validate that an optimised soft-actor critic (SAC) algorithm outperformed the TD3 algorithm.",
+        "key_point": "Optimized DRL can enhance energy management in DAC systems.",
+        "conditions": [],
+        "limitations": [],
+        "reason": "The abstract focuses on the methodology and results without addressing potential drawbacks or broader implications."
+      },
+      {
+        "title": "Exploration of Quantum Computing in Materials Discovery for Direct Air Capture Applications",
+        "authors": [
+          "Marco Antonio Barroca",
+          "Rodrigo Neumann Barros Ferreira",
+          "Mathias Steiner"
+        ],
+        "year": 2024,
+        "url": "https://arxiv.org/abs/2404.13122v3",
+        "grade_score": 0.416,
+        "grade_level": "LOW",
+        "summary": "This research explores the application of quantum computing to accelerate the discovery of solid sorbents for Direct Air Capture (DAC) of CO2. The study simulates gas adsorption in metal-organic frameworks (MOFs) using quantum algorithms, achieving reasonable accuracy. While the findings suggest potential advancements in sorbent discovery, the abstract does not specify limitations or the practical implications of using quantum computing in this context.",
+        "excerpt": "Quantum computing can potentially accelerate the discovery of solid sorbents for DAC by predicting molecular binding energies.",
+        "key_point": "Quantum computing may enhance the discovery of DAC sorbents.",
+        "conditions": [],
+        "limitations": [],
+        "reason": "The abstract presents a promising approach without discussing feasibility or existing challenges."
+      },
+      {
+        "title": "The Open DAC 2023 Dataset and Challenges for Sorbent Discovery in Direct Air Capture",
+        "authors": [
+          "Anuroop Sriram",
+          "Sihoon Choi",
+          "Xiaohan Yu",
+          "Logan M. Brabson",
+          "Abhishek Das",
+          "Zachary Ulissi",
+          "Matt Uyttendaele",
+          "Andrew J. Medford",
+          "David S. Sholl"
+        ],
+        "year": 2023,
+        "url": "https://arxiv.org/abs/2311.00341v2",
+        "grade_score": 0.416,
+        "grade_level": "LOW",
+        "summary": "This paper introduces the Open DAC 2023 dataset, which contains extensive density functional theory calculations on metal-organic frameworks (MOFs) for Direct Air Capture (DAC). The dataset aims to facilitate the discovery of effective MOF sorbents by addressing the challenges posed by the vast chemical space. The findings highlight the dataset's potential utility beyond DAC applications, but the abstract does not mention specific limitations or challenges in using the dataset.",
+        "excerpt": "ODAC23 is by far the largest dataset of MOF adsorption calculations at the DFT level of accuracy currently available.",
+        "key_point": "The Open DAC 2023 dataset aids in discovering effective MOF sorbents.",
+        "conditions": [],
+        "limitations": [],
+        "reason": "The abstract emphasizes the dataset's size and potential without addressing its limitations or practical challenges."
+      },
+      {
+        "title": "Design Optimization and Global Impact Assessment of Solar-Thermal Direct Air Carbon Capture",
+        "authors": [
+          "Zhiyuan Fan",
+          "Bolun Xu"
+        ],
+        "year": 2025,
+        "url": "https://arxiv.org/abs/2510.20135v1",
+        "grade_score": 0.416,
+        "grade_level": "LOW",
+        "summary": "This study investigates solar-thermal Direct Air Capture (DAC) systems as a scalable solution for carbon dioxide removal. It analyzes the techno-economic performance of these systems, revealing that they can achieve competitive CO2 removal costs and high capacity factors. The findings suggest that solar-thermal DAC is particularly promising in regions with high solar capacity. However, the abstract does not explicitly mention limitations or challenges associated with this technology.",
+        "excerpt": "Results show that solar-thermal DAC can achieve annual capacity factors exceeding 80% and CO2 removal costs as low as 160-200 USD per ton.",
+        "key_point": "Solar-thermal DAC systems may provide a cost-effective solution for CO2 removal.",
+        "conditions": [],
+        "limitations": [],
+        "reason": "The abstract presents optimistic findings without discussing potential barriers to implementation."
+      },
+      {
+        "title": "Enhancing Profit and CO2 Mitigation: Commercial Direct Air Capture Design and Operation with Power Market Volatility",
+        "authors": [
+          "Zhiyuan Fan",
+          "Elizabeth Dentzer",
+          "James Glynn",
+          "David S. Goldberg",
+          "Julio Friedmann",
+          "Bolun Xu"
+        ],
+        "year": 2025,
+        "url": "https://arxiv.org/abs/2510.12949v1",
+        "grade_score": 0.416,
+        "grade_level": "LOW",
+        "summary": "This research evaluates the commercial operation of various Direct Air Capture (DAC) technologies in relation to power market volatility. It models the financial dynamics of DAC operations in different locations, suggesting that strategic operation during low-price periods can enhance cost-efficiency. The findings indicate that ambient conditions impact DAC performance, but the abstract does not specify limitations or broader implications of the study.",
+        "excerpt": "Profit-driven decisions introduce climate-economic trade-offs that might decrease the capacity factor of DAC.",
+        "key_point": "Strategic operation of DAC can leverage power market volatility for cost-efficiency.",
+        "conditions": [],
+        "limitations": [],
+        "reason": "The abstract highlights financial strategies without addressing potential environmental or operational challenges."
+      },
+      {
+        "title": "The Long-Term Impact of Direct Capture Approaches to Carbon Dioxide Removal",
+        "authors": [
+          "Al Jay Lan J. Alamin",
+          "Melquezedec James T. Cruz",
+          "Bryan S. Hernandez",
+          "Eduardo R. Mendoza"
+        ],
+        "year": 2025,
+        "url": "https://arxiv.org/abs/2510.20593v1",
+        "grade_score": 0.416,
+        "grade_level": "LOW",
+        "summary": "This study analyzes the long-term impacts of different carbon dioxide removal (CDR) techniques, focusing on direct ocean capture (DOC) and its comparison to Direct Air Capture (DAC). The research constructs a kinetic system for CDR via DOC, revealing critical conditions for effective carbon reduction. While the findings emphasize the importance of understanding tipping points, the abstract does not explicitly mention limitations or challenges faced by these CDR approaches.",
+        "excerpt": "Our analysis reveals the necessary conditions for the existence of positive steady states.",
+        "key_point": "Understanding tipping points is crucial for effective carbon reduction strategies.",
+        "conditions": [],
+        "limitations": [],
+        "reason": "The abstract discusses theoretical insights without addressing practical limitations or challenges in implementation."
+      }
+    ],
+    "overall_grade": "LOW",
+    "summary": "Semantic Scholar·OpenAlex·arXiv 기준 상위 7편을 선별했습니다. 평균 가중 GRADE 스켈레톤 점수는 상위 3편 기준 약 0.44이며, 자동 휴리스틱이므로 임상·정책 GRADE와 동일하지 않습니다.",
+    "error": null,
+    "grade_breakdown": {
+      "study_design": 0.5833,
+      "bias_risk": 0.45,
+      "consistency_hint": 0.0,
+      "directness": 1.0,
+      "precision_hint": 0.0,
+      "venue_authority": 0.5467,
+      "weighted_total": 0.4423
+    },
+    "search_sources": [
+      "semantic_scholar",
+      "openalex",
+      "arxiv"
+    ]
+  }
+}

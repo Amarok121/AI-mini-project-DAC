@@ -1,12 +1,15 @@
-from typing import Literal
+from typing import Literal, Optional
+
 from pydantic import BaseModel
-from .claim import Claim
+
 from .agent_result import (
-    ScientificAgentOutput,
-    IndustrialAgentOutput,
-    RegulatoryAgentOutput,
-    CrossValidatorOutput,
+    CrossValidationResult,
+    IndustrialResult,
+    RegulatoryResult,
+    ScientificResult,
 )
+from .claim import Claim
+from .report import ChartData, CitationMeta, ReportOutput
 
 
 class VerificationRequest(BaseModel):
@@ -17,7 +20,14 @@ class VerificationRequest(BaseModel):
 class VerificationResponse(BaseModel):
     report_markdown: str
     claims: list[Claim]
-    scientific: ScientificAgentOutput
-    industrial: IndustrialAgentOutput
-    regulatory: RegulatoryAgentOutput
-    cross_validation: CrossValidatorOutput
+    scientific: ScientificResult
+    industrial: IndustrialResult
+    regulatory: RegulatoryResult
+    cross_validation: CrossValidationResult
+    citation_metadata: list[CitationMeta] = []
+    chart_data: Optional[ChartData] = None
+    pdf_path: Optional[str] = None
+
+
+class ReportResponse(ReportOutput):
+    pass
