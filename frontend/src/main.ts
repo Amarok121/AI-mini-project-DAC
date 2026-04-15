@@ -5,6 +5,7 @@ import Home from "./views/Home.vue";
 import Report from "./views/Report.vue";
 import JobStatus from "./views/JobStatus.vue";
 import "./styles.css";
+import "katex/dist/katex.min.css";
 
 const router = createRouter({
   history: createWebHistory(),

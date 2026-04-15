@@ -21,23 +21,12 @@
         </div>
 
         <div class="card-body" style="display: flex; flex-direction: column; gap: 14px">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-            <div class="field">
-              <label>언어</label>
-              <select v-model="language">
-                <option value="ko">한국어 (Korean)</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>도메인</label>
-              <select v-model="domain">
-                <option value="climate">기후/탄소</option>
-                <option value="it">IT / Software</option>
-                <option value="bio">Bio / Medical</option>
-                <option value="mfg">Manufacturing</option>
-              </select>
-            </div>
+          <div class="field">
+            <label>언어</label>
+            <select v-model="language">
+              <option value="ko">한국어 (Korean)</option>
+              <option value="en">English</option>
+            </select>
           </div>
 
           <div class="field" style="flex: 1">
@@ -49,7 +38,18 @@
           </div>
           <div class="field">
             <label>참고 PDF (선택)</label>
-            <input type="file" accept="application/pdf" @change="onPickPdf" />
+            <div class="file-upload-row" :class="{ 'is-disabled': isLoading }">
+              <input
+                id="home-pdf-input"
+                ref="pdfInputRef"
+                type="file"
+                class="sr-only"
+                accept="application/pdf"
+                :disabled="isLoading"
+                @change="onPickPdf"
+              />
+              <label for="home-pdf-input" class="btn btn-file">PDF 파일 선택</label>
+            </div>
             <div class="hint" v-if="pdfFile">{{ pdfFile.name }} ({{ Math.round(pdfFile.size / 1024) }}KB)</div>
             <div class="hint" v-else>업로드 시 서버에서 텍스트만 추출해 검증에 포함합니다(파일은 저장하지 않습니다).</div>
           </div>
@@ -57,9 +57,22 @@
           <div class="error" v-if="errorMsg">{{ errorMsg }}</div>
         </div>
 
+        <div v-if="isLoading && !devMode" class="verify-progress" role="status" aria-live="polite">
+          <div class="verify-progress-head">
+            <span class="verify-progress-pct">처리 중… {{ loadingPercent }}%</span>
+            <span class="verify-progress-msg">{{ loadingMessage }}</span>
+          </div>
+          <div class="verify-progress-track" aria-hidden="true">
+            <div class="verify-progress-fill" :style="{ width: loadingPercent + '%' }" />
+          </div>
+          <p class="verify-progress-note">
+            서버가 한 번에 결과를 돌려주므로, 표시는 예상 단계를 순환합니다(실제 처리 순서와 다를 수 있습니다).
+          </p>
+        </div>
+
         <div class="actions">
-          <button class="btn" @click="clearAll" :disabled="isLoading">Clear</button>
-          <button class="btn primary" @click="confirm" :disabled="isLoading || !canSubmit">
+          <button type="button" class="btn btn-secondary" @click="clearAll" :disabled="isLoading">Clear</button>
+          <button type="button" class="btn primary" @click="confirm" :disabled="isLoading || !canSubmit">
             {{ isLoading ? "분석 중..." : "Confirm & Analyze" }}
           </button>
         </div>
@@ -84,12 +97,17 @@
                 <div style="font-size: 12px; font-weight: 900; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase">
                   최종 판단
                 </div>
-                <div class="summary-text" style="margin-top: 8px">
-                  {{ summaryText }}
-                </div>
+                <div
+                  v-if="summaryHtml"
+                  class="summary-text summary-md"
+                  style="margin-top: 8px"
+                  v-html="summaryHtml"
+                />
+                <div v-else class="summary-text" style="margin-top: 8px">근거를 바탕으로 결과를 요약합니다.</div>
                 <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap">
                   <span class="badge neutral">Verdict: {{ result.cross_validation?.overall_verdict ?? "—" }}</span>
-                  <span class="badge" :class="badgeClass(result.scientific?.overall_grade)">Scientific: {{ result.scientific?.overall_grade ?? "—" }}</span>
+                  <span class="badge" :class="badgeClass(scientificGrade)">Scientific: {{ scientificGrade ?? "—" }}</span>
+                  <span class="badge" :class="badgeClass(result.industrial?.overall_level)">Industrial: {{ result.industrial?.overall_level ?? "—" }}</span>
                   <span class="badge" :class="badgeClass(result.regulatory?.confidence)"
                     >Regulatory: {{ result.regulatory?.verdict ?? "—" }} ({{ result.regulatory?.confidence ?? "—" }})</span
                   >
@@ -99,7 +117,7 @@
               <div class="divider-v" />
 
               <div style="flex: 0.95; min-width: 0">
-                <ScoreSummary :score-summary="result.score_summary" />
+                <ScoreSummary :score-summary="displayScoreSummary ?? undefined" />
               </div>
             </div>
           </div>
@@ -119,8 +137,8 @@
             <div v-if="!result" class="hint">결과가 생성되면 클레임 판정/보고서가 표시됩니다.</div>
             <div v-else>
               <div v-if="rightTab === 'claims'" style="display: flex; flex-direction: column; gap: 12px">
-                <div v-if="result.claim_verdicts?.length" style="display: flex; flex-direction: column; gap: 12px">
-                  <div v-for="(cv, i) in result.claim_verdicts" :key="i" class="card" style="border-radius: 10px">
+                <div v-if="displayClaimRows.length" style="display: flex; flex-direction: column; gap: 12px">
+                  <div v-for="(cv, i) in displayClaimRows" :key="i" class="card" style="border-radius: 10px">
                     <div class="card-body" style="display: grid; grid-template-columns: 1.2fr 0.9fr 0.9fr; gap: 14px">
                       <div>
                         <div class="hint" style="font-weight: 800; letter-spacing: 0.06em">CLAIM</div>
@@ -139,13 +157,14 @@
                     </div>
                   </div>
                 </div>
-                <div v-else class="hint">claim_verdicts가 아직 없어서, 기존 claims/cross_validation 기반 표시로 대체 예정입니다.</div>
+                <div v-else class="hint">클레임별 판정(chart_data.claim_verdicts)이 없습니다.</div>
               </div>
 
               <div v-else>
                 <ReportViewer
                   :markdown="result.report_markdown || ''"
                   :citations="result.citation_metadata"
+                  :chart-data="result.chart_data"
                   @copy="copyReport"
                 />
               </div>
@@ -204,7 +223,7 @@
             <div style="font-weight: 900">Roadmap</div>
           </div>
           <div class="card-body">
-            <RoadmapTimeline :steps="result?.roadmap_steps" />
+            <RoadmapTimeline :steps="displayRoadmap" />
           </div>
         </div>
 
@@ -226,12 +245,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import ScoreSummary, { type ScoreSummary as ScoreSummaryT } from "../components/ScoreSummary.vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import ScoreSummary from "../components/ScoreSummary.vue";
 import ConfidenceGauge from "../components/ConfidenceGauge.vue";
 import RoadmapTimeline, { type RoadmapStep } from "../components/RoadmapTimeline.vue";
 import ReportViewer from "../components/ReportViewer.vue";
 import type { CitationMeta } from "../types/citation";
+import {
+  claimRowsFromChart,
+  roadmapFromChart,
+  scoreSummaryFromChart,
+  type ApiChartData
+} from "../utils/chartData";
+import { renderMarkdownSafe } from "../utils/renderMarkdown";
 
 type Grade = "HIGH" | "MED" | "LOW" | string;
 type Verdict = "해당" | "미해당" | "불명확" | string;
@@ -253,10 +279,21 @@ type PaperEvidence = {
 };
 
 type ScientificOut = {
-  overall_grade: Grade;
+  overall_grade?: Grade;
+  confidence?: Grade;
   summary: string;
   error?: string | null;
   papers: PaperEvidence[];
+  trl_estimate?: string;
+};
+
+type IndustrialOut = {
+  overall_level?: Grade;
+  summary?: string;
+  error?: string | null;
+  mrl_estimate?: string;
+  news?: unknown[];
+  patents?: unknown[];
 };
 
 type RegulatoryOut = {
@@ -264,18 +301,19 @@ type RegulatoryOut = {
   confidence: Grade;
   evidence_summary: string;
   source_urls: string[];
+  cri_estimate?: string;
 };
 
 type VerifyResult = {
   report_markdown: string;
   claims: unknown[];
   scientific: ScientificOut;
+  industrial?: IndustrialOut;
   regulatory: RegulatoryOut;
   cross_validation: { overall_verdict: string };
   citation_metadata?: CitationMeta[];
-  chart_data?: unknown;
+  chart_data?: ApiChartData;
   pdf_path?: string | null;
-  score_summary?: ScoreSummaryT;
   claim_verdicts?: Array<{
     claim: string;
     verdict: string;
@@ -287,11 +325,57 @@ type VerifyResult = {
 };
 
 const language = ref<"ko" | "en">("ko");
-const domain = ref<string>("climate");
 const text = ref<string>("");
 const pdfFile = ref<File | null>(null);
+const pdfInputRef = ref<HTMLInputElement | null>(null);
 
 const isLoading = ref(false);
+const loadingPercent = ref(0);
+const loadingMessage = ref("");
+let loadingMsgTimer: ReturnType<typeof setInterval> | null = null;
+let loadingPctTimer: ReturnType<typeof setInterval> | null = null;
+
+const LOADING_MESSAGES = [
+  "요청을 서버로 보내는 중…",
+  "클레임 추출 중…",
+  "과학 에이전트: 논문·근거를 찾는 중…",
+  "산업 에이전트: 뉴스·특허를 살펴보는 중…",
+  "규제 에이전트: 법령·리스크를 검토하는 중…",
+  "교차 검증을 실행하는 중…",
+  "기업 맥락을 보강하는 중…",
+  "보고서 초안을 정리하는 중…"
+];
+
+function stopLoadingUX() {
+  if (loadingMsgTimer != null) {
+    clearInterval(loadingMsgTimer);
+    loadingMsgTimer = null;
+  }
+  if (loadingPctTimer != null) {
+    clearInterval(loadingPctTimer);
+    loadingPctTimer = null;
+  }
+  loadingPercent.value = 0;
+  loadingMessage.value = "";
+}
+
+function startLoadingUX() {
+  stopLoadingUX();
+  loadingPercent.value = 5;
+  loadingMessage.value = LOADING_MESSAGES[0];
+  let idx = 0;
+  loadingMsgTimer = setInterval(() => {
+    idx = (idx + 1) % LOADING_MESSAGES.length;
+    loadingMessage.value = LOADING_MESSAGES[idx] ?? "";
+  }, 2400);
+  loadingPctTimer = setInterval(() => {
+    const p = loadingPercent.value;
+    if (p >= 92) return;
+    const bump = (92 - p) * 0.055 + Math.random() * 2.5;
+    loadingPercent.value = Math.min(92, Math.round(p + bump));
+  }, 380);
+}
+
 const errorMsg = ref<string>("");
 const result = ref<VerifyResult | null>(null);
 const rightTab = ref<"claims" | "report">("claims");
@@ -309,6 +393,9 @@ function onPickPdf(e: Event) {
 function clearAll() {
   text.value = "";
   pdfFile.value = null;
+  if (pdfInputRef.value) {
+    pdfInputRef.value.value = "";
+  }
   errorMsg.value = "";
   result.value = null;
 }
@@ -329,14 +416,48 @@ function badgeClass(level?: string) {
   return "neutral";
 }
 
-const summaryText = computed(() => {
+const scientificGrade = computed(() => {
+  const s = result.value?.scientific;
+  return s?.overall_grade ?? s?.confidence ?? "";
+});
+
+const displayScoreSummary = computed(() =>
+  scoreSummaryFromChart(
+    result.value?.chart_data,
+    result.value?.scientific,
+    result.value?.industrial,
+    result.value?.regulatory
+  )
+);
+
+const displayClaimRows = computed(() => {
+  const fromChart = claimRowsFromChart(result.value?.chart_data);
+  if (fromChart.length) return fromChart;
+  return result.value?.claim_verdicts ?? [];
+});
+
+const displayRoadmap = computed((): RoadmapStep[] => {
+  const fromChart = roadmapFromChart(result.value?.chart_data);
+  if (fromChart.length) return fromChart as RoadmapStep[];
+  return result.value?.roadmap_steps ?? [];
+});
+
+/** 결과 요약 카드의「최종 판단」본문 — 보고서의 Executive Summary 구간을 마크다운으로 렌더 */
+const summaryMarkdownSlice = computed(() => {
   const md = result.value?.report_markdown ?? "";
-  if (!md.trim()) return "근거를 바탕으로 결과를 요약합니다.";
-  // Executive Summary 섹션이 있으면 그 주변을 우선 사용
-  const idx = md.indexOf("## 1. Executive Summary");
-  const slice = idx >= 0 ? md.slice(idx, idx + 700) : md.slice(0, 700);
-  // 마크다운을 아주 단순히 정리 (UI용 짧은 요약)
-  return slice.replace(/[#*_`>-]/g, "").replace(/\n{2,}/g, "\n").trim().slice(0, 420);
+  if (!md.trim()) return "";
+  const start = md.indexOf("## 1. Executive Summary");
+  if (start >= 0) {
+    const rest = md.slice(start);
+    const next = rest.indexOf("\n## 2.");
+    return (next >= 0 ? rest.slice(0, next) : rest.slice(0, 1400)).trim();
+  }
+  return md.slice(0, 900).trim();
+});
+
+const summaryHtml = computed(() => {
+  const src = summaryMarkdownSlice.value;
+  return src ? renderMarkdownSafe(src) : "";
 });
 
 async function confirm() {
@@ -349,6 +470,7 @@ async function confirm() {
   }
 
   isLoading.value = true;
+  startLoadingUX();
   try {
     const fd = new FormData();
     fd.append("content", text.value);
@@ -364,9 +486,21 @@ async function confirm() {
       throw new Error(`요청 실패 (${resp.status}): ${t}`);
     }
     result.value = (await resp.json()) as VerifyResult;
+    if (loadingPctTimer != null) {
+      clearInterval(loadingPctTimer);
+      loadingPctTimer = null;
+    }
+    if (loadingMsgTimer != null) {
+      clearInterval(loadingMsgTimer);
+      loadingMsgTimer = null;
+    }
+    loadingPercent.value = 100;
+    loadingMessage.value = "응답을 받았습니다.";
+    await new Promise((r) => setTimeout(r, 320));
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : "알 수 없는 오류";
   } finally {
+    stopLoadingUX();
     isLoading.value = false;
   }
 }
@@ -434,8 +568,16 @@ function buildDevMock(): VerifyResult {
         status: "달성"
       }
     ],
+    industrial: {
+      overall_level: "MED",
+      mrl_estimate: "MRL 5~6",
+      summary: "산업 뉴스/특허 예시입니다.",
+      news: [],
+      patents: []
+    },
     scientific: {
       overall_grade: "MED",
+      trl_estimate: "TRL 5~6",
       summary: "초록 기반 evidence pack 예시입니다.",
       papers: [
         {
@@ -475,6 +617,7 @@ function buildDevMock(): VerifyResult {
     regulatory: {
       verdict: "불명확",
       confidence: "MED",
+      cri_estimate: "CRI 3~4",
       evidence_summary:
         "정부/공공 텍스트와 웹 스니펫을 기반으로 요약한 예시다. 적용 가능 인센티브/규제는 기술 범위·운영지역·보고/측정 기준에 따라 달라질 수 있어 불명확 처리한다. 전문가 검토가 필요하다.",
       source_urls: [
@@ -484,6 +627,15 @@ function buildDevMock(): VerifyResult {
       ]
     },
     cross_validation: { overall_verdict: "조건부 가능" },
+    chart_data: {
+      score_summary: {
+        trl: { value: 5, min: 1, max: 9, label: "기술개발 단계", rationale: "" },
+        mrl: { value: 6, min: 1, max: 10, label: "시제품 단계", rationale: "" },
+        cri: { value: 3, min: 1, max: 6, label: "규제 검토 단계", rationale: "" }
+      },
+      claim_verdicts: [],
+      roadmap_steps: []
+    },
     citation_metadata: [
       {
         ref_id: 1,
@@ -500,19 +652,6 @@ function buildDevMock(): VerifyResult {
         source_type: "regulation"
       }
     ],
-    score_summary: {
-      trl: "TRL 5~6",
-      mrl: "MRL 5~6",
-      cri: "CRI 3~4",
-      trl_level: "MED",
-      mrl_level: "MED",
-      cri_level: "MED",
-      bars: [
-        { label: "Scientific", value: 62, level: "MED" },
-        { label: "Industrial", value: 58, level: "MED" },
-        { label: "Regulatory", value: 42, level: "LOW" }
-      ]
-    },
     claim_verdicts: [
       {
         claim: "1,000시간 연속 운전 성공",
@@ -540,6 +679,10 @@ function buildDevMock(): VerifyResult {
 onMounted(() => {
   const url = new URL(window.location.href);
   setDevMode(url.searchParams.get("dev") === "1");
+});
+
+onUnmounted(() => {
+  stopLoadingUX();
 });
 </script>
 

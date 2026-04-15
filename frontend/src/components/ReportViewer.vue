@@ -36,6 +36,8 @@ import type { CitationMeta } from "../types/citation";
 const props = defineProps<{
   markdown: string;
   citations?: CitationMeta[];
+  /** 검증 JSON의 `chart_data` — 있으면 PDF에 레이더·KPI 막대 등 삽입 */
+  chartData?: Record<string, unknown> | null;
 }>();
 
 const emit = defineEmits<{
@@ -79,10 +81,17 @@ async function downloadPdf() {
   pdfLoading.value = true;
   pdfError.value = "";
   try {
+    const payload: Record<string, unknown> = {
+      markdown: props.markdown,
+      title: "기술 검증 보고서"
+    };
+    if (props.chartData && typeof props.chartData === "object") {
+      payload.chart_data = props.chartData;
+    }
     const resp = await fetch("/report/pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markdown: props.markdown, title: "기술 검증 보고서" })
+      body: JSON.stringify(payload)
     });
     if (resp.status === 503) {
       const err = await resp.json().catch(() => ({}));
@@ -157,6 +166,16 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   border: 1px solid var(--border);
   padding: 6px 8px;
   vertical-align: top;
+}
+
+.report-md :deep(.katex) {
+  font-size: 1em;
+  color: var(--text);
+}
+
+.report-md :deep(.katex-display) {
+  margin: 0.8em 0;
+  overflow-x: auto;
 }
 
 .citation-panel {

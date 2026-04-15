@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.pipeline.orchestrator import run_verification
 from app.preprocessing.pdf_extract import extract_text_from_pdf_bytes
 from app.schemas.api import VerificationRequest, VerificationResponse
+from app.schemas.report import ChartData
 
 
 router = APIRouter()
@@ -58,6 +59,7 @@ async def verify_upload(
 class ReportPdfRequest(BaseModel):
     markdown: str = Field(..., min_length=1)
     title: str = Field(default='기술 검증 보고서')
+    chart_data: Optional[ChartData] = None
 
 
 @router.post('/report/pdf')
@@ -65,7 +67,7 @@ async def download_report_pdf(body: ReportPdfRequest):
     """생성된 Markdown 보고서를 PDF로 내려받습니다(WeasyPrint 등이 설치된 환경에서만 PDF)."""
     from app.agents.report.pdf_export import export_pdf  # lazy
 
-    path = export_pdf(body.markdown, chart_data=None, title=body.title or '기술 검증 보고서')
+    path = export_pdf(body.markdown, chart_data=body.chart_data, title=body.title or '기술 검증 보고서')
     if path.lower().endswith('.pdf'):
         return FileResponse(
             path,
